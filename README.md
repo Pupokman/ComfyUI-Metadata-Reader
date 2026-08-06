@@ -2,6 +2,18 @@
 
 [Русский](#русский) · [English](#english)
 
+## Скачать / Download
+
+Открой [последний релиз](https://github.com/Pupokman/ComfyUI-Metadata-Reader/releases/latest) и скачай **`ComfyUI-Metadata-Reader-v4.4.html`**. Затем просто открой файл в современном браузере.
+
+Open the [latest release](https://github.com/Pupokman/ComfyUI-Metadata-Reader/releases/latest) and download **`ComfyUI-Metadata-Reader-v4.4.html`**. Then open the file in a modern browser.
+
+> GitHub автоматически добавляет архивы **Source code (zip)** и **Source code (tar.gz)**. Для обычного использования они не нужны.
+>
+> GitHub automatically adds the **Source code (zip)** and **Source code (tar.gz)** archives. They are not needed for normal use.
+
+---
+
 ## Русский
 
 Локальный ридер метаданных для файлов, созданных в ComfyUI и других генеративных интерфейсах. Работает в браузере без установки, сервера и подключения к интернету.
@@ -18,18 +30,18 @@
 
 ### Форматы
 
-Ридер умеет искать метаданные в PNG, JPEG, WebP, TIFF, GIF, AVIF/HEIC, SVG/XML, MP4/MOV/M4V/3GP, WebM/MKV, AVI/WAV, MP3, FLAC, OGG/Opus, PDF, JSON, TXT и safetensors.
+Ридер ищет метаданные в PNG, JPEG, WebP, TIFF, GIF, AVIF/HEIC, SVG/XML, MP4/MOV/M4V/3GP, WebM/MKV, AVI/WAV, MP3, FLAC, OGG/Opus, PDF, JSON, TXT и safetensors.
 
 Для больших медиафайлов читаются начало и конец контейнера, поэтому браузеру не приходится держать в памяти весь видеопоток.
 
 ### Использование
 
-1. Скачай файлы репозитория.
-2. Открой `index.html` в современном браузере.
+1. Скачай `ComfyUI-Metadata-Reader-v4.4.html` из раздела Releases.
+2. Открой файл в современном браузере.
 3. Перетащи файл в большую область загрузки, выбери его вручную или вставь через `Ctrl+V`.
 4. Скопируй нужные параметры либо скачай `workflow.json` или полный файл метаданных.
 
-Язык выбирается кнопками **RU / EN**. По умолчанию используется язык браузера; выбор запоминается, когда браузер разрешает локальное хранилище.
+Язык выбирается кнопками **RU / EN**. По умолчанию используется язык браузера; выбранный язык запоминается, когда доступно локальное хранилище.
 
 ### Приватность
 
@@ -65,8 +77,8 @@ For large media files, it reads the beginning and end of the container instead o
 
 ### Usage
 
-1. Download the repository files.
-2. Open `index.html` in a modern browser.
+1. Download `ComfyUI-Metadata-Reader-v4.4.html` from Releases.
+2. Open it in a modern browser.
 3. Drop a file onto the large upload area, choose it manually, or paste it with `Ctrl+V`.
 4. Copy the settings you need, or download `workflow.json` or the complete metadata file.
 
