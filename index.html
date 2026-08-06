@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>ComfyUI Metadata Reader v4.4</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <main class="app">
+    <header class="classic-header">
+      <div class="classic-heading">
+        <div class="classic-title-row">
+          <h1>ComfyUI Metadata Reader</h1>
+          <span class="version">v4.4</span>
+        </div>
+        <p data-i18n="appDescription">Промпты, параметры генерации, модели и workflow — прямо из файла.</p>
+      </div>
+      <div class="classic-header-actions">
+        <div class="header-tools">
+          <div class="language-switch" role="group" aria-label="Language">
+            <button class="language-button" type="button" data-lang="ru" aria-pressed="false">RU</button>
+            <button class="language-button" type="button" data-lang="en" aria-pressed="false">EN</button>
+          </div>
+          <div class="privacy" data-i18n="privacy">Файл никуда не отправляется</div>
+        </div>
+        <div class="actions">
+          <button class="button" id="clearResult" hidden data-i18n="clear">Очистить</button>
+          <button class="button primary" id="openFile" data-i18n="openFile">Открыть файл</button>
+        </div>
+      </div>
+    </header>
+
+    <section class="ingest" id="ingest">
+      <label class="dropzone" id="dropzone">
+        <input id="fileInput" type="file" accept="*/*">
+        <div class="drop-inner">
+          <span class="drop-mark" aria-hidden="true">↓</span>
+          <span class="drop-title" data-i18n="dropTitle">Перетащи файл сюда</span>
+          <span class="drop-sub" data-i18n="dropSub">Нажми здесь, перетащи файл или вставь его через Ctrl+V.</span>
+          <span class="format-line">PNG · JPEG · WebP · TIFF · GIF · MP4/MOV · WebM/MKV · AVI/WAV · MP3 · FLAC · OGG/Opus · AVIF/HEIC · SVG/XML · PDF · JSON/TXT · safetensors</span>
+        </div>
+      </label>
+      <div class="status-line" id="statusWrap" role="status" aria-live="polite">
+        <span class="spinner" aria-hidden="true"></span>
+        <span id="status" data-i18n="ready">Готов</span>
+      </div>
+    </section>
+
+    <section class="results" id="results">
+      <div class="top-grid">
+        <article class="card preview-panel">
+          <div class="preview-stage">
+            <img id="previewImage" class="preview-media" alt="Предпросмотр изображения" data-i18n-alt="previewAlt">
+            <video id="previewVideo" class="preview-media" controls muted playsinline></video>
+            <audio id="previewAudio" class="preview-media preview-audio" controls></audio>
+            <div id="previewFallback" class="preview-fallback" data-i18n="noPreview">Предпросмотр для этого формата недоступен</div>
+          </div>
+          <div class="file-block">
+            <div class="file-name" id="fileName"></div>
+            <div class="file-meta" id="fileInfo"></div>
+            <div class="sidebar-actions">
+              <button class="button small" id="newFile" data-i18n="anotherFile">Открыть другой</button>
+              <button class="button small" id="downloadMetadata" data-i18n="downloadMetadata">Скачать метаданные</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="card summary-card">
+          <div class="card-head summary-card-head">
+            <div class="workspace-title">
+              <h2 id="resultTitle" data-i18n="generationSettings">Параметры генерации</h2>
+              <p id="resultSubtitle"></p>
+            </div>
+            <div class="workspace-actions">
+              <button class="button small" id="copySummary" data-i18n="copySummary">Копировать сводку</button>
+              <button class="button small" id="downloadWorkflow" disabled data-i18n="downloadWorkflow">Скачать workflow</button>
+            </div>
+          </div>
+          <div class="filter-row">
+            <input class="search" id="metadataSearch" type="search" autocomplete="off" placeholder="Поиск по настройкам, моделям, LoRA и узлам" data-i18n-placeholder="searchPlaceholder">
+            <span class="filter-count" id="filterCount"></span>
+          </div>
+          <div class="panel-head compact-head">
+            <h3 data-i18n="coreSettings">Основные настройки</h3>
+            <span class="panel-note" id="parameterNote"></span>
+          </div>
+          <div class="summary-grid" id="summaryGrid"></div>
+        </article>
+      </div>
+
+      <div class="prompt-grid section">
+        <article class="card prompt-panel searchable-block">
+          <div class="card-head prompt-head">
+            <h3 data-i18n="positivePrompt">Положительный промпт</h3>
+            <div class="prompt-tools">
+              <span class="char-count" id="positiveCount"></span>
+              <button class="button ghost small copy-field" data-target="positivePrompt" data-i18n="copy">Копировать</button>
+            </div>
+          </div>
+          <textarea class="prompt-text" id="positivePrompt" readonly placeholder="Не найден" data-i18n-placeholder="notFound"></textarea>
+        </article>
+
+        <article class="card prompt-panel searchable-block">
+          <div class="card-head prompt-head">
+            <h3 data-i18n="negativePrompt">Негативный промпт</h3>
+            <div class="prompt-tools">
+              <span class="char-count" id="negativeCount"></span>
+              <button class="button ghost small copy-field" data-target="negativePrompt" data-i18n="copy">Копировать</button>
+            </div>
+          </div>
+          <textarea class="prompt-text" id="negativePrompt" readonly placeholder="Не найден" data-i18n-placeholder="notFound"></textarea>
+        </article>
+      </div>
+
+      <article class="card section details-card">
+        <div class="card-head">
+          <h2 data-i18n="details">Подробности</h2>
+          <span class="panel-note" data-i18n="detailsHint">Нажми на раздел, чтобы открыть его.</span>
+        </div>
+        <div id="details"></div>
+      </article>
+
+      <article class="card section raw-card">
+        <div class="card-head">
+          <h2 data-i18n="embeddedData">Встроенные данные</h2>
+          <div class="raw-toolbar">
+            <button class="button ghost small" id="toggleWrap" data-i18n="noWrap">Без переноса</button>
+            <button class="button ghost small" id="copyRaw" data-i18n="copyTab">Копировать вкладку</button>
+          </div>
+        </div>
+        <div class="tabs" id="tabs" role="tablist"></div>
+        <pre class="raw wrap" id="rawContent"></pre>
+      </article>
+    </section>
+
+    <footer data-i18n="footer">Файл обрабатывается только в браузере. Если редактор или сайт удалил метаданные, восстановить их по содержимому файла нельзя.</footer>
+  </main>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
