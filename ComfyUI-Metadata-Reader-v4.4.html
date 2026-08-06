@@ -1,0 +1,3644 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>ComfyUI Metadata Reader v4.4</title>
+  <style>
+:root {
+      color-scheme: dark;
+      --page: #0c0e11;
+      --surface: #12151a;
+      --surface-raised: #171b21;
+      --surface-hover: #1c2129;
+      --line: #2b313a;
+      --line-strong: #3a424e;
+      --text: #edf0f4;
+      --muted: #929aa6;
+      --faint: #68717e;
+      --accent: #72a7e8;
+      --accent-hover: #8bb8ef;
+      --success: #76b893;
+      --danger: #e18484;
+      --warning: #d6b36a;
+      --radius: 9px;
+      --mono: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+      --ui: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scrollbar-gutter: stable; }
+    body {
+      margin: 0;
+      min-width: 300px;
+      min-height: 100vh;
+      background: var(--page);
+      color: var(--text);
+      font: 14px/1.45 var(--ui);
+    }
+    button, input, textarea { font: inherit; }
+    button { color: inherit; }
+    ::selection { background: rgba(114,167,232,.28); }
+    [hidden] { display: none !important; }
+
+    .shell { width: min(1380px, calc(100% - 32px)); margin: 0 auto; }
+    .topbar {
+      min-height: 62px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+    .brand { min-width: 0; }
+    .brand-line { display: flex; align-items: baseline; gap: 9px; }
+    .brand h1 { margin: 0; font-size: 18px; line-height: 1.2; letter-spacing: -.015em; font-weight: 680; }
+    .version { color: var(--faint); font: 12px var(--mono); }
+    .brand p { margin: 3px 0 0; color: var(--muted); font-size: 12.5px; }
+    .top-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+    .local-note { color: var(--muted); font-size: 12px; margin-right: 4px; }
+
+    .button {
+      min-height: 34px;
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      background: var(--surface-raised);
+      padding: 6px 11px;
+      cursor: pointer;
+      transition: border-color .12s ease, background .12s ease, color .12s ease;
+    }
+    .button:hover { background: var(--surface-hover); border-color: #505a68; }
+    .button:active { transform: translateY(1px); }
+    .button.primary { border-color: #5d8ec8; background: #24466f; }
+    .button.primary:hover { background: #2b527f; border-color: var(--accent); }
+    .button.ghost { background: transparent; border-color: transparent; color: var(--muted); }
+    .button.ghost:hover { color: var(--text); border-color: var(--line); background: var(--surface); }
+    .button.small { min-height: 30px; padding: 4px 9px; font-size: 12.5px; }
+    .button:disabled { opacity: .42; cursor: not-allowed; transform: none; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    main { padding: 24px 0 42px; }
+    .ingest { max-width: 960px; margin: 0 auto; }
+    body.has-results .ingest { max-width: none; margin: 0 0 18px 318px; }
+    .dropzone {
+      position: relative;
+      min-height: 128px;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      gap: 18px;
+      border: 1px dashed #46505d;
+      border-radius: var(--radius);
+      background: var(--surface);
+      padding: 22px 24px;
+      cursor: pointer;
+      transition: border-color .12s ease, background .12s ease;
+    }
+    .dropzone:hover, .dropzone.drag { border-color: var(--accent); background: #151a20; }
+    .dropzone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .drop-mark {
+      width: 46px;
+      height: 46px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      color: var(--accent);
+      font: 24px/1 var(--mono);
+      background: #0f1216;
+    }
+    .dropzone > span:last-child { display: block; min-width: 0; }
+    .drop-title, .drop-sub, .format-line { display: block; }
+    .drop-title { font-size: 16px; font-weight: 660; }
+    .drop-sub { margin-top: 3px; color: var(--muted); }
+    .format-line { margin-top: 9px; color: var(--faint); font: 11.5px/1.45 var(--mono); overflow-wrap: anywhere; }
+    body.has-results .dropzone { min-height: 72px; padding: 13px 16px; grid-template-columns: 34px 1fr; }
+    body.has-results .drop-mark { width: 34px; height: 34px; font-size: 18px; }
+    body.has-results .drop-title { font-size: 14px; }
+    body.has-results .drop-sub { display: none; }
+    body.has-results .format-line { margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .status-line {
+      min-height: 34px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 2px 0;
+      color: var(--muted);
+      font-size: 12.5px;
+    }
+    .status-line.ok { color: var(--success); }
+    .status-line.error { color: var(--danger); }
+    .status-line.working { color: var(--accent); }
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid #33404e;
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      display: none;
+    }
+    .status-line.working .spinner { display: block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .results { display: none; grid-template-columns: 292px minmax(0,1fr); gap: 26px; align-items: start; }
+    .results.show { display: grid; }
+    .sidebar { position: sticky; top: 16px; min-width: 0; }
+    .preview-panel, .content-panel { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+    .preview-stage {
+      min-height: 220px;
+      display: grid;
+      place-items: center;
+      background-color: #0e1115;
+      background-image: linear-gradient(45deg, #161a20 25%, transparent 25%), linear-gradient(-45deg, #161a20 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #161a20 75%), linear-gradient(-45deg, transparent 75%, #161a20 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+    }
+    .preview-media { display: none; max-width: 100%; max-height: 480px; object-fit: contain; }
+    .preview-media.show { display: block; }
+    .preview-audio { width: calc(100% - 28px); margin: 26px 14px; }
+    .preview-fallback { display: none; color: var(--muted); text-align: center; padding: 30px 18px; }
+    .preview-fallback.show { display: block; }
+    .file-block { padding: 14px; border-top: 1px solid var(--line); }
+    .file-name { font-weight: 650; overflow-wrap: anywhere; }
+    .file-meta { margin-top: 5px; color: var(--muted); font: 12px/1.5 var(--mono); overflow-wrap: anywhere; }
+    .sidebar-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+
+    .workspace { min-width: 0; display: grid; gap: 16px; }
+    .workspace-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .workspace-title { min-width: 0; }
+    .workspace-title h2 { margin: 0; font-size: 19px; line-height: 1.25; overflow-wrap: anywhere; }
+    .workspace-title p { margin: 4px 0 0; color: var(--muted); font-size: 12.5px; }
+    .workspace-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+    .filter-row { display: flex; gap: 10px; align-items: center; }
+    .search {
+      width: min(460px, 100%);
+      min-height: 36px;
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      background: #0f1216;
+      color: var(--text);
+      padding: 7px 10px;
+    }
+    .search::placeholder { color: var(--faint); }
+    .filter-count { color: var(--faint); font-size: 12px; white-space: nowrap; }
+
+    .content-panel { content-visibility: auto; contain-intrinsic-size: 260px; }
+    .panel-head {
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .panel-head h3 { margin: 0; font-size: 14px; font-weight: 670; }
+    .panel-note { color: var(--faint); font-size: 12px; }
+    .summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); }
+    .summary-item { min-width: 0; padding: 13px 14px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .summary-item:nth-child(4n) { border-right: 0; }
+    .summary-item:nth-last-child(-n+4) { border-bottom: 0; }
+    .summary-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .055em; }
+    .summary-value { margin-top: 4px; font-weight: 650; overflow-wrap: anywhere; }
+
+    .prompt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .prompt-panel { min-width: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+    .prompt-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+    .prompt-head h3 { margin: 0; font-size: 13px; }
+    .prompt-tools { display: flex; align-items: center; gap: 8px; }
+    .char-count { color: var(--faint); font: 11px var(--mono); }
+    textarea.prompt-text {
+      width: 100%;
+      min-height: 210px;
+      max-height: 520px;
+      margin: 0;
+      padding: 13px;
+      border: 0;
+      resize: vertical;
+      outline: 0;
+      background: #0f1216;
+      color: #e7ebf0;
+      font: 12.5px/1.55 var(--mono);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    details { border-bottom: 1px solid var(--line); }
+    details:last-child { border-bottom: 0; }
+    summary {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 14px;
+      cursor: pointer;
+      font-weight: 640;
+      user-select: none;
+      list-style: none;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary::before { content: '›'; width: 14px; color: var(--faint); font: 18px/1 var(--mono); transition: transform .12s ease; }
+    details[open] summary::before { transform: rotate(90deg); }
+    .detail-count { color: var(--faint); font-weight: 400; }
+    .details-content { padding: 0 14px 14px 36px; }
+    .data-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    .data-table th, .data-table td { padding: 8px 9px; border-top: 1px solid var(--line); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+    .data-table th { width: 30%; color: var(--muted); font-size: 12px; font-weight: 580; }
+    .data-table td { font-family: var(--mono); font-size: 12px; }
+    .resource-list { display: grid; border-top: 1px solid var(--line); }
+    .resource-row { padding: 9px 10px; border-bottom: 1px solid var(--line); font: 12px/1.45 var(--mono); overflow-wrap: anywhere; }
+    .resource-row:last-child { border-bottom: 0; }
+    .node-list { border-top: 1px solid var(--line); }
+    .node-row { display: grid; grid-template-columns: 58px minmax(0,1fr); gap: 10px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+    .node-id { color: var(--faint); font: 11.5px var(--mono); }
+    .node-title { font-weight: 600; }
+    .node-type { color: var(--muted); font: 11.5px var(--mono); }
+    .empty { color: var(--muted); padding: 13px 0; }
+    .truncation-note { padding: 10px; color: var(--warning); font-size: 12px; border-top: 1px solid var(--line); }
+
+    .raw-toolbar { display: flex; align-items: center; gap: 8px; }
+    .tabs { display: flex; gap: 16px; overflow-x: auto; padding: 0 14px; border-bottom: 1px solid var(--line); }
+    .tab {
+      flex: none;
+      border: 0;
+      border-bottom: 2px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      padding: 11px 0 9px;
+      cursor: pointer;
+      font-size: 12.5px;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+    pre.raw {
+      width: 100%;
+      max-height: 560px;
+      min-height: 220px;
+      margin: 0;
+      padding: 14px;
+      overflow: auto;
+      background: #0f1216;
+      color: #dce2e9;
+      font: 12px/1.55 var(--mono);
+      white-space: pre;
+      tab-size: 2;
+    }
+    pre.raw.wrap { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 20;
+      max-width: min(420px, calc(100% - 36px));
+      padding: 10px 12px;
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      background: #1a2027;
+      color: var(--text);
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: opacity .15s ease, transform .15s ease;
+    }
+    .toast.show { opacity: 1; transform: none; }
+    footer { margin-top: 24px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--faint); font-size: 11.5px; }
+
+    @media (max-width: 1060px) {
+      body.has-results .ingest { margin-left: 0; }
+      .results { grid-template-columns: 1fr; }
+      .sidebar { position: static; display: grid; grid-template-columns: minmax(260px, 360px) 1fr; gap: 16px; }
+      .preview-panel { display: contents; }
+      .preview-stage, .file-block { border: 1px solid var(--line); border-radius: var(--radius); background-color: var(--surface); }
+      .file-block { border-top: 1px solid var(--line); }
+    }
+    @media (max-width: 820px) {
+      .shell { width: min(100% - 20px, 1380px); }
+      .topbar { align-items: flex-start; padding: 14px 0; }
+      .brand p, .local-note { display: none; }
+      .workspace-head { flex-direction: column; }
+      .workspace-actions { justify-content: flex-start; }
+      .summary-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .summary-item:nth-child(4n) { border-right: 1px solid var(--line); }
+      .summary-item:nth-child(2n) { border-right: 0; }
+      .summary-item:nth-last-child(-n+4) { border-bottom: 1px solid var(--line); }
+      .summary-item:nth-last-child(-n+2) { border-bottom: 0; }
+      .prompt-grid, .sidebar { grid-template-columns: 1fr; }
+      .dropzone { grid-template-columns: 38px 1fr; padding: 17px; }
+      .drop-mark { width: 38px; height: 38px; font-size: 20px; }
+      body.has-results .format-line, .format-line { max-height: 34px; overflow: hidden; white-space: normal; }
+      .content-panel { content-visibility: visible; contain: none; }
+    }
+    @media (max-width: 540px) {
+      .top-actions .button:not(.primary) { display: none; }
+      .summary-grid { grid-template-columns: 1fr; }
+      .summary-item, .summary-item:nth-child(2n), .summary-item:nth-child(4n) { border-right: 0; border-bottom: 1px solid var(--line); }
+      .summary-item:last-child { border-bottom: 0; }
+      .workspace-actions { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+      .filter-row { align-items: stretch; flex-direction: column; }
+      .search { width: 100%; }
+      .details-content { padding-left: 14px; }
+      .data-table th { width: 38%; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .001ms !important; transition-duration: .001ms !important; }
+    }
+  
+    /* v4.2 — насыщенная тёмно-синяя / тёмно-фиолетовая тема */
+    :root {
+      --page: #060817;
+      --surface: rgba(13, 18, 43, .92);
+      --surface-raised: rgba(22, 27, 58, .96);
+      --surface-hover: rgba(30, 37, 76, .98);
+      --line: rgba(116, 132, 196, .20);
+      --line-strong: rgba(132, 148, 224, .38);
+      --text: #f2f4ff;
+      --muted: #a7add0;
+      --faint: #777fa8;
+      --accent: #78a6ff;
+      --accent-hover: #9ac0ff;
+      --purple: #a875ff;
+      --purple-bright: #c09aff;
+      --success: #7fddba;
+      --danger: #ff8fa8;
+      --warning: #f1c479;
+      --radius: 13px;
+      --shadow-soft: 0 16px 45px rgba(2, 4, 18, .28);
+      --shadow-panel: 0 18px 55px rgba(3, 5, 24, .36);
+      --glow-blue: 0 0 0 1px rgba(111, 151, 255, .08), 0 12px 32px rgba(28, 76, 180, .12);
+      --glow-purple: 0 0 0 1px rgba(174, 104, 255, .08), 0 12px 32px rgba(111, 42, 178, .12);
+    }
+
+    body {
+      position: relative;
+      background:
+        radial-gradient(900px 520px at 8% -8%, rgba(42, 94, 202, .30), transparent 64%),
+        radial-gradient(860px 520px at 96% 4%, rgba(129, 55, 191, .28), transparent 66%),
+        radial-gradient(650px 520px at 48% 110%, rgba(31, 74, 165, .18), transparent 70%),
+        linear-gradient(135deg, #050713 0%, #091027 46%, #150a2a 100%);
+      background-attachment: fixed;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: -1;
+      opacity: .24;
+      background-image:
+        linear-gradient(rgba(126, 147, 221, .035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(126, 147, 221, .028) 1px, transparent 1px);
+      background-size: 44px 44px;
+      mask-image: linear-gradient(to bottom, rgba(0,0,0,.72), transparent 84%);
+    }
+
+    ::selection { background: rgba(153, 107, 255, .38); color: #fff; }
+    html { scrollbar-color: #46528f #080b1c; }
+    *::-webkit-scrollbar { width: 11px; height: 11px; }
+    *::-webkit-scrollbar-track { background: #080b1c; }
+    *::-webkit-scrollbar-thumb {
+      border: 3px solid #080b1c;
+      border-radius: 10px;
+      background: linear-gradient(#435eaa, #7046a4);
+    }
+
+    .shell { width: min(1400px, calc(100% - 34px)); }
+
+    .topbar {
+      position: relative;
+      min-height: 72px;
+      border-bottom: 1px solid rgba(126, 145, 215, .22);
+    }
+    .topbar::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -1px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(92, 149, 255, .65), rgba(167, 91, 255, .62), transparent);
+    }
+    .brand h1 {
+      font-size: 19px;
+      color: #f6f7ff;
+      text-shadow: 0 0 24px rgba(118, 154, 255, .14);
+    }
+    .version {
+      padding: 2px 7px;
+      border: 1px solid rgba(166, 119, 255, .28);
+      border-radius: 6px;
+      color: #c5a7ff;
+      background: rgba(83, 45, 133, .22);
+    }
+    .brand p { color: #a5acd0; }
+    .local-note {
+      color: #9ca5cc;
+      padding: 5px 9px;
+      border-radius: 7px;
+      background: rgba(17, 22, 51, .54);
+      border: 1px solid rgba(111, 129, 193, .14);
+    }
+
+    .button {
+      border-color: rgba(120, 139, 207, .32);
+      background: linear-gradient(180deg, rgba(31, 39, 81, .96), rgba(18, 24, 55, .96));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+      transition: border-color .14s ease, background .14s ease, box-shadow .14s ease, transform .12s ease;
+    }
+    .button:hover {
+      background: linear-gradient(180deg, rgba(41, 51, 101, .98), rgba(25, 31, 68, .98));
+      border-color: rgba(143, 166, 245, .58);
+      box-shadow: 0 8px 22px rgba(12, 23, 72, .26), inset 0 1px 0 rgba(255,255,255,.05);
+    }
+    .button.primary {
+      border-color: rgba(143, 142, 255, .68);
+      background: linear-gradient(120deg, #315da8 0%, #5340a2 55%, #713c9e 100%);
+      box-shadow: 0 8px 25px rgba(66, 72, 191, .24), inset 0 1px 0 rgba(255,255,255,.12);
+    }
+    .button.primary:hover {
+      background: linear-gradient(120deg, #3b70c4 0%, #624fc1 54%, #8848bb 100%);
+      border-color: #aeb9ff;
+      box-shadow: 0 10px 30px rgba(80, 73, 209, .34), 0 0 22px rgba(142, 88, 223, .15);
+    }
+    .button.ghost {
+      color: #a9b2da;
+    }
+    .button.ghost:hover {
+      color: #f1f3ff;
+      border-color: rgba(139, 156, 225, .26);
+      background: rgba(35, 42, 83, .68);
+    }
+    :focus-visible {
+      outline-color: #9d83ff;
+      box-shadow: 0 0 0 4px rgba(128, 105, 255, .14);
+    }
+
+    main { padding-top: 28px; }
+
+    .dropzone {
+      overflow: hidden;
+      border: 1px solid transparent;
+      border-radius: 16px;
+      background:
+        linear-gradient(135deg, rgba(14, 25, 62, .96), rgba(33, 17, 60, .94)) padding-box,
+        linear-gradient(110deg, rgba(79, 145, 255, .62), rgba(164, 83, 255, .68), rgba(77, 108, 220, .46)) border-box;
+      box-shadow: var(--shadow-panel), inset 0 1px 0 rgba(255,255,255,.035);
+      transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+    }
+    .dropzone::before {
+      content: "";
+      position: absolute;
+      inset: -45% auto -45% -18%;
+      width: 36%;
+      transform: rotate(18deg);
+      pointer-events: none;
+      opacity: .22;
+      background: linear-gradient(90deg, transparent, rgba(164, 202, 255, .58), transparent);
+      transition: left .35s ease, opacity .2s ease;
+    }
+    .dropzone:hover, .dropzone.drag {
+      transform: translateY(-1px);
+      background:
+        linear-gradient(135deg, rgba(18, 34, 82, .98), rgba(48, 23, 82, .97)) padding-box,
+        linear-gradient(110deg, #6aa9ff, #b06fff, #6b83ff) border-box;
+      box-shadow: 0 22px 64px rgba(7, 11, 38, .48), 0 0 30px rgba(92, 106, 255, .12);
+    }
+    .dropzone:hover::before, .dropzone.drag::before { left: 84%; opacity: .38; }
+    .drop-mark {
+      border-color: rgba(119, 154, 255, .40);
+      color: #a9c5ff;
+      background: linear-gradient(145deg, rgba(34, 65, 135, .58), rgba(70, 33, 105, .54));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 8px 20px rgba(14, 21, 67, .24);
+    }
+    .drop-title { color: #f3f5ff; }
+    .drop-sub { color: #adb5d7; }
+    .format-line { color: #7f8bb9; }
+
+    .status-line {
+      margin-top: 5px;
+      padding-left: 4px;
+      color: #98a2c8;
+    }
+    .status-line.working { color: #8fb6ff; }
+    .status-line.ok { color: #82dab9; }
+    .status-line.error { color: #ff91aa; }
+    .spinner {
+      border-color: rgba(92, 114, 184, .35);
+      border-top-color: #a67dff;
+      box-shadow: 0 0 12px rgba(139, 98, 255, .24);
+    }
+
+    .preview-panel,
+    .content-panel,
+    .prompt-panel {
+      border-color: rgba(118, 135, 204, .20);
+      background:
+        linear-gradient(145deg, rgba(17, 23, 54, .94), rgba(24, 17, 47, .91));
+      box-shadow: var(--shadow-soft), inset 0 1px 0 rgba(255,255,255,.025);
+      backdrop-filter: blur(10px);
+    }
+    .content-panel,
+    .prompt-panel {
+      position: relative;
+    }
+    .content-panel::before,
+    .prompt-panel::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 18px;
+      right: 18px;
+      height: 1px;
+      pointer-events: none;
+      background: linear-gradient(90deg, transparent, rgba(100, 153, 255, .42), rgba(170, 94, 255, .38), transparent);
+    }
+    .preview-panel { box-shadow: var(--glow-blue), var(--shadow-soft); }
+    .prompt-panel:first-child { box-shadow: var(--glow-blue), var(--shadow-soft); }
+    .prompt-panel:last-child { box-shadow: var(--glow-purple), var(--shadow-soft); }
+
+    .preview-stage {
+      background-color: #090d20;
+      background-image:
+        linear-gradient(45deg, rgba(32, 42, 80, .58) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(32, 42, 80, .58) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(32, 42, 80, .58) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(32, 42, 80, .58) 75%),
+        radial-gradient(circle at 50% 12%, rgba(74, 102, 196, .13), transparent 58%);
+    }
+    .file-block {
+      background: linear-gradient(180deg, rgba(22, 29, 65, .76), rgba(20, 17, 45, .84));
+      border-top-color: rgba(124, 142, 210, .18);
+    }
+    .file-name { color: #f2f4ff; }
+    .file-meta { color: #929dc5; }
+
+    .workspace-head {
+      padding: 4px 2px 16px;
+      border-bottom-color: rgba(124, 143, 212, .20);
+    }
+    .workspace-title h2 {
+      color: #f3f4ff;
+      text-shadow: 0 0 24px rgba(123, 150, 255, .14);
+    }
+    .workspace-title p { color: #929dc3; }
+
+    .search {
+      border-color: rgba(124, 145, 217, .32);
+      background: linear-gradient(180deg, rgba(13, 19, 45, .96), rgba(17, 13, 35, .96));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
+    }
+    .search:hover { border-color: rgba(147, 166, 242, .46); }
+    .search:focus {
+      border-color: #8e8cff;
+      box-shadow: 0 0 0 3px rgba(115, 103, 255, .14), 0 8px 24px rgba(8, 12, 43, .18);
+    }
+    .search::placeholder { color: #727da7; }
+
+    .panel-head,
+    .prompt-head {
+      border-bottom-color: rgba(118, 137, 207, .19);
+      background: linear-gradient(90deg, rgba(31, 45, 91, .42), rgba(68, 31, 91, .28));
+    }
+    .panel-head h3,
+    .prompt-head h3 { color: #eef1ff; }
+    .panel-note, .char-count { color: #7f89b4; }
+
+    .summary-item {
+      border-color: rgba(112, 131, 198, .16);
+      background: linear-gradient(145deg, rgba(22, 31, 70, .38), rgba(30, 19, 57, .32));
+      transition: background .14s ease, box-shadow .14s ease;
+    }
+    .summary-item:hover {
+      background: linear-gradient(145deg, rgba(31, 46, 97, .52), rgba(47, 25, 78, .46));
+      box-shadow: inset 0 0 0 1px rgba(139, 153, 230, .10);
+    }
+    .summary-label { color: #8f99c1; }
+    .summary-value { color: #f0f2ff; }
+
+    textarea.prompt-text,
+    pre.raw {
+      background:
+        radial-gradient(circle at 100% 0%, rgba(93, 48, 145, .10), transparent 34%),
+        linear-gradient(145deg, #090e25, #120b22);
+      color: #e4e9ff;
+      scrollbar-color: #4b5792 #090d20;
+    }
+    textarea.prompt-text:focus {
+      box-shadow: inset 0 0 0 1px rgba(130, 142, 231, .24);
+    }
+
+    details { border-bottom-color: rgba(112, 130, 197, .16); }
+    summary {
+      color: #dde2fa;
+      transition: background .12s ease, color .12s ease;
+    }
+    summary:hover {
+      color: #fff;
+      background: linear-gradient(90deg, rgba(39, 55, 110, .32), rgba(66, 35, 93, .24));
+    }
+    summary::before { color: #9c8fff; }
+    details[open] summary {
+      background: linear-gradient(90deg, rgba(39, 55, 110, .25), rgba(66, 35, 93, .18));
+    }
+    .data-table th, .data-table td,
+    .resource-list, .resource-row,
+    .node-list, .node-row,
+    .truncation-note {
+      border-color: rgba(109, 128, 193, .15);
+    }
+    .data-table th { color: #9aa4cc; }
+    .resource-row, .node-row { background: rgba(12, 17, 41, .26); }
+    .resource-row:hover, .node-row:hover { background: rgba(36, 41, 87, .38); }
+    .node-id, .node-type, .detail-count { color: #7883ad; }
+    .node-title { color: #e1e5f8; }
+
+    .tabs {
+      border-bottom-color: rgba(112, 132, 198, .19);
+      background: rgba(10, 15, 38, .42);
+    }
+    .tab { color: #8e98bf; }
+    .tab:hover { color: #e7ebff; }
+    .tab.active {
+      color: #fff;
+      border-bottom-color: transparent;
+      background-image: linear-gradient(90deg, #6fa6ff, #b070ff);
+      background-repeat: no-repeat;
+      background-size: 100% 2px;
+      background-position: 0 100%;
+      text-shadow: 0 0 14px rgba(133, 130, 255, .24);
+    }
+
+    .toast {
+      border-color: rgba(136, 149, 226, .42);
+      background: linear-gradient(135deg, rgba(25, 38, 82, .98), rgba(53, 25, 79, .98));
+      box-shadow: 0 18px 50px rgba(4, 7, 28, .55), 0 0 25px rgba(120, 84, 224, .12);
+      color: #f4f5ff;
+    }
+
+    footer {
+      border-top-color: rgba(117, 134, 203, .16);
+      color: #737da5;
+    }
+
+    @media (max-width: 1060px) {
+      .preview-stage, .file-block {
+        border-color: rgba(118, 135, 204, .20);
+        background-color: rgba(13, 18, 43, .92);
+      }
+    }
+
+    @media (max-width: 820px) {
+      .shell { width: min(100% - 18px, 1400px); }
+      .topbar { min-height: 64px; }
+      .dropzone { border-radius: 14px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .dropzone::before { display: none; }
+    }
+
+  
+    /* v4.3 Classic — компоновка и ощущение первого ридера */
+    :root {
+      color-scheme: dark;
+      --bg: #090b18;
+      --panel: rgba(16, 20, 43, .94);
+      --panel-2: rgba(23, 28, 59, .94);
+      --panel-3: #0c1022;
+      --border: rgba(110, 124, 188, .25);
+      --border-strong: rgba(126, 142, 218, .46);
+      --text: #eef1ff;
+      --muted: #a0a8cb;
+      --faint: #737da8;
+      --accent: #8b78ff;
+      --accent-blue: #699fff;
+      --accent-2: #66d5ba;
+      --danger: #ff7f9e;
+      --shadow: 0 20px 64px rgba(0, 0, 0, .38);
+      --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+
+    html { scrollbar-color: #4b4d8b #080a17; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 12% -4%, rgba(61, 105, 210, .23), transparent 34rem),
+        radial-gradient(circle at 92% 4%, rgba(128, 55, 190, .22), transparent 34rem),
+        linear-gradient(145deg, #070917 0%, #0b1027 48%, #160b29 100%);
+      background-attachment: fixed;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: -1;
+      opacity: .2;
+      background-image:
+        linear-gradient(rgba(132, 151, 220, .035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(132, 151, 220, .03) 1px, transparent 1px);
+      background-size: 46px 46px;
+    }
+
+    button, input, textarea { font: inherit; }
+    button { color: inherit; }
+    .app {
+      width: min(1180px, calc(100% - 28px));
+      margin: 0 auto;
+      padding: 34px 0 58px;
+    }
+
+    .classic-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 22px;
+    }
+    .classic-heading { min-width: 0; }
+    .classic-title-row { display: flex; align-items: baseline; gap: 10px; }
+    .classic-header h1 {
+      margin: 0;
+      font-size: clamp(27px, 4vw, 40px);
+      line-height: 1.06;
+      letter-spacing: -.045em;
+      font-weight: 760;
+      text-shadow: 0 0 28px rgba(110, 139, 255, .15);
+    }
+    .version {
+      color: #c4adff;
+      font: 12px var(--mono);
+      padding: 3px 7px;
+      border: 1px solid rgba(169, 116, 255, .30);
+      border-radius: 7px;
+      background: rgba(79, 40, 126, .28);
+    }
+    .classic-header p {
+      max-width: 760px;
+      margin: 9px 0 0;
+      color: var(--muted);
+    }
+    .classic-header-actions {
+      display: grid;
+      justify-items: end;
+      gap: 9px;
+      flex: none;
+    }
+    .privacy {
+      color: var(--accent-2);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .actions, .workspace-actions, .raw-toolbar, .prompt-tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .button {
+      min-height: 35px;
+      padding: 7px 11px;
+      border: 1px solid rgba(119, 135, 204, .34);
+      border-radius: 10px;
+      color: var(--text);
+      background: linear-gradient(180deg, rgba(35, 43, 86, .96), rgba(23, 28, 59, .96));
+      cursor: pointer;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+      transition: .14s ease;
+    }
+    .button:hover {
+      border-color: rgba(148, 164, 242, .64);
+      background: linear-gradient(180deg, rgba(46, 57, 111, .98), rgba(31, 37, 77, .98));
+      transform: translateY(-1px);
+    }
+    .button:active { transform: translateY(0); }
+    .button.primary {
+      border-color: rgba(151, 147, 255, .76);
+      background: linear-gradient(120deg, #3567b5, #5946ad 56%, #783da5);
+      box-shadow: 0 9px 28px rgba(78, 67, 194, .24), inset 0 1px 0 rgba(255,255,255,.11);
+    }
+    .button.primary:hover {
+      background: linear-gradient(120deg, #427acb, #6956c8 55%, #914abb);
+      box-shadow: 0 11px 32px rgba(82, 71, 205, .34);
+    }
+    .button.small { min-height: 31px; padding: 5px 9px; font-size: 12.5px; }
+    .button.ghost { background: transparent; border-color: transparent; color: var(--muted); box-shadow: none; }
+    .button.ghost:hover { color: #fff; border-color: rgba(128, 144, 214, .27); background: rgba(41, 48, 94, .58); }
+    .button:disabled { opacity: .44; cursor: not-allowed; transform: none; }
+    :focus-visible { outline: 2px solid #9e8aff; outline-offset: 2px; }
+
+    .ingest { max-width: none !important; margin: 0 !important; }
+    .dropzone {
+      position: relative;
+      min-height: 250px !important;
+      display: grid !important;
+      place-items: center;
+      grid-template-columns: 1fr !important;
+      text-align: center;
+      padding: 32px !important;
+      overflow: hidden;
+      cursor: pointer;
+      border: 1.5px dashed rgba(119, 140, 213, .58);
+      border-radius: 22px;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(69, 114, 219, .16), transparent 55%),
+        linear-gradient(135deg, rgba(15, 23, 55, .91), rgba(37, 17, 61, .90));
+      box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,.035);
+      transition: .17s ease;
+    }
+    .dropzone::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: .38;
+      background: linear-gradient(110deg, transparent 15%, rgba(107, 155, 255, .09) 48%, rgba(174, 91, 255, .10) 56%, transparent 88%);
+    }
+    .dropzone:hover, .dropzone.drag {
+      border-color: #9c85ff;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(79, 128, 235, .23), transparent 58%),
+        linear-gradient(135deg, rgba(20, 34, 78, .96), rgba(54, 23, 83, .95));
+      box-shadow: 0 24px 72px rgba(0,0,0,.45), 0 0 34px rgba(103, 99, 255, .12);
+      transform: translateY(-1px);
+    }
+    .dropzone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .drop-inner { position: relative; z-index: 1; display: grid; justify-items: center; max-width: 900px; }
+    .drop-mark {
+      width: 64px !important;
+      height: 64px !important;
+      display: grid;
+      place-items: center;
+      margin-bottom: 14px;
+      border: 1px solid rgba(125, 158, 255, .42);
+      border-radius: 19px !important;
+      color: #b3caff;
+      font: 30px/1 var(--mono) !important;
+      background: linear-gradient(145deg, rgba(48, 84, 164, .52), rgba(92, 43, 132, .48));
+      box-shadow: 0 12px 28px rgba(8, 13, 49, .34), inset 0 1px 0 rgba(255,255,255,.08);
+    }
+    .drop-title { display: block; font-size: 20px !important; font-weight: 760; }
+    .drop-sub { display: block !important; margin-top: 6px !important; color: var(--muted); }
+    .format-line {
+      display: block !important;
+      max-width: 920px !important;
+      margin-top: 15px !important;
+      color: #7f89b5;
+      font: 11.5px/1.55 var(--mono);
+      white-space: normal !important;
+      overflow: visible !important;
+    }
+    body.has-results .dropzone {
+      min-height: 190px !important;
+      padding: 28px !important;
+      grid-template-columns: 1fr !important;
+    }
+    body.has-results .drop-mark { width: 58px !important; height: 58px !important; font-size: 27px !important; }
+    body.has-results .drop-title { font-size: 19px !important; }
+    body.has-results .drop-sub { display: block !important; }
+    body.has-results .format-line { margin-top: 13px !important; white-space: normal !important; overflow: visible !important; }
+
+    .status-line {
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 10px 3px 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .status-line.ok { color: var(--accent-2); }
+    .status-line.error { color: var(--danger); }
+    .status-line.working { color: #91b7ff; }
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(89, 108, 176, .38);
+      border-top-color: #9c7dff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      display: none;
+    }
+    .status-line.working .spinner { display: block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .results { display: none !important; margin-top: 22px; }
+    .results.show { display: block !important; }
+    .top-grid {
+      display: grid;
+      grid-template-columns: minmax(270px, 350px) minmax(0, 1fr);
+      gap: 18px;
+      align-items: stretch;
+    }
+    .section { margin-top: 18px; }
+
+    .card {
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background:
+        linear-gradient(145deg, rgba(17, 23, 53, .96), rgba(27, 17, 49, .94));
+      box-shadow: 0 13px 44px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.026);
+    }
+    .card-head {
+      min-height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 13px 16px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(90deg, rgba(42, 60, 118, .28), rgba(79, 36, 104, .22));
+    }
+    .card-head h2, .card-head h3 { margin: 0; font-size: 15px; }
+    .summary-card { display: flex; flex-direction: column; }
+    .summary-card-head { align-items: flex-start; }
+    .workspace-title h2 { margin: 0; font-size: 18px; }
+    .workspace-title p { margin: 4px 0 0; color: var(--muted); font-size: 12.5px; }
+
+    .preview-stage {
+      min-height: 292px;
+      display: grid;
+      place-items: center;
+      background-color: #090d20;
+      background-image:
+        linear-gradient(45deg, rgba(34, 44, 84, .58) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(34, 44, 84, .58) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(34, 44, 84, .58) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(34, 44, 84, .58) 75%);
+      background-size: 22px 22px;
+      background-position: 0 0, 0 11px, 11px -11px, -11px 0;
+    }
+    .preview-media { display: none; max-width: 100%; max-height: 470px; object-fit: contain; }
+    .preview-media.show { display: block; }
+    .preview-audio { width: calc(100% - 30px); margin: 30px 15px; }
+    .preview-fallback { display: none; padding: 34px 20px; color: var(--muted); text-align: center; }
+    .preview-fallback.show { display: block; }
+    .file-block { padding: 14px 15px; border-top: 1px solid var(--border); background: rgba(13, 17, 39, .48); }
+    .file-name { font-weight: 700; overflow-wrap: anywhere; }
+    .file-meta { margin-top: 5px; color: var(--muted); font: 12px/1.5 var(--mono); overflow-wrap: anywhere; }
+    .sidebar-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+
+    .filter-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .search {
+      width: 100%;
+      min-height: 38px;
+      border: 1px solid rgba(122, 140, 210, .36);
+      border-radius: 10px;
+      padding: 8px 11px;
+      color: var(--text);
+      background: linear-gradient(145deg, #0b1027, #130b25);
+      outline: 0;
+    }
+    .search:focus {
+      border-color: #9584ff;
+      box-shadow: 0 0 0 3px rgba(123, 105, 255, .14);
+    }
+    .search::placeholder { color: #727ca8; }
+    .filter-count { flex: none; color: var(--faint); font-size: 12px; }
+    .compact-head {
+      min-height: 43px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 9px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .compact-head h3 { margin: 0; font-size: 14px; }
+    .panel-note { color: var(--faint); font-size: 12px; }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      padding: 15px;
+    }
+    .summary-item {
+      min-width: 0;
+      padding: 12px;
+      border: 1px solid rgba(110, 128, 197, .18);
+      border-radius: 13px;
+      background: linear-gradient(145deg, rgba(28, 39, 82, .50), rgba(43, 23, 70, .42));
+    }
+    .summary-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .075em; }
+    .summary-value { margin-top: 4px; font-weight: 700; overflow-wrap: anywhere; }
+
+    .prompt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .prompt-head { min-height: 50px; }
+    .char-count { color: var(--faint); font: 11px var(--mono); }
+    textarea.prompt-text {
+      width: 100%;
+      min-height: 220px;
+      max-height: 600px;
+      margin: 0;
+      padding: 16px;
+      border: 0;
+      outline: 0;
+      resize: vertical;
+      color: #e8ecff;
+      background:
+        radial-gradient(circle at 100% 0%, rgba(90, 48, 143, .10), transparent 34%),
+        linear-gradient(145deg, #090e24, #120a21);
+      font: 13px/1.56 var(--mono);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    details { border-top: 1px solid var(--border); }
+    details:first-child { border-top: 0; }
+    summary {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 17px;
+      color: #e0e4f8;
+      cursor: pointer;
+      font-weight: 700;
+      user-select: none;
+      list-style: none;
+      transition: background .12s ease;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary::before { content: "›"; width: 14px; color: #a393ff; font: 18px/1 var(--mono); transition: transform .12s ease; }
+    details[open] summary::before { transform: rotate(90deg); }
+    summary:hover { background: linear-gradient(90deg, rgba(42, 60, 116, .30), rgba(73, 38, 101, .22)); }
+    .detail-count { color: var(--faint); font-weight: 400; }
+    .details-content { padding: 0 17px 17px 39px; }
+    .data-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    .data-table th, .data-table td {
+      padding: 9px 10px;
+      border-top: 1px solid rgba(109, 126, 192, .17);
+      text-align: left;
+      vertical-align: top;
+      overflow-wrap: anywhere;
+    }
+    .data-table th { width: 30%; color: var(--muted); font-size: 12px; font-weight: 650; }
+    .data-table td { font: 12px/1.5 var(--mono); }
+    .resource-list, .node-list { border-top: 1px solid rgba(109, 126, 192, .17); }
+    .resource-row, .node-row {
+      padding: 9px 10px;
+      border-bottom: 1px solid rgba(109, 126, 192, .15);
+      font: 12px/1.45 var(--mono);
+      overflow-wrap: anywhere;
+    }
+    .resource-row:last-child, .node-row:last-child { border-bottom: 0; }
+    .node-id, .node-type { color: var(--faint); }
+    .node-title { color: #e4e7f7; }
+    .empty { color: var(--muted); padding: 14px 0; }
+    .truncation-note { padding: 11px; color: var(--muted); border-top: 1px solid var(--border); }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(10, 14, 34, .42);
+    }
+    .tab {
+      min-height: 31px;
+      padding: 5px 10px;
+      border: 1px solid rgba(118, 134, 202, .27);
+      border-radius: 9px;
+      color: var(--muted);
+      background: rgba(27, 34, 72, .66);
+      cursor: pointer;
+    }
+    .tab:hover { color: #fff; border-color: rgba(147, 162, 239, .56); }
+    .tab.active {
+      color: #fff;
+      border-color: #9c83ff;
+      background: linear-gradient(120deg, rgba(52, 100, 180, .92), rgba(105, 58, 157, .92));
+    }
+    pre.raw {
+      width: 100%;
+      min-height: 250px;
+      max-height: 620px;
+      margin: 0;
+      padding: 16px;
+      overflow: auto;
+      color: #dfe5ff;
+      background: linear-gradient(145deg, #080d21, #11091f);
+      font: 12.5px/1.55 var(--mono);
+      white-space: pre;
+      overflow-wrap: normal;
+    }
+    pre.raw.wrap { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+    .content-panel, .details-card, .raw-card { content-visibility: auto; contain-intrinsic-size: 300px; }
+
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 20;
+      max-width: min(380px, calc(100% - 36px));
+      padding: 11px 14px;
+      border: 1px solid rgba(143, 153, 225, .42);
+      border-radius: 11px;
+      color: #f5f6ff;
+      background: linear-gradient(135deg, rgba(25, 38, 82, .98), rgba(53, 25, 79, .98));
+      box-shadow: 0 18px 50px rgba(4,7,28,.55);
+      opacity: 0;
+      transform: translateY(10px);
+      pointer-events: none;
+      transition: .16s ease;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    footer {
+      margin-top: 22px;
+      padding-top: 17px;
+      border-top: 1px solid rgba(113, 130, 197, .16);
+      color: #737da4;
+      font-size: 12px;
+      text-align: center;
+    }
+
+    @media (max-width: 900px) {
+      .classic-header { align-items: flex-start; flex-direction: column; }
+      .classic-header-actions { justify-items: start; }
+      .privacy { white-space: normal; }
+      .top-grid, .prompt-grid { grid-template-columns: 1fr; }
+      .preview-stage { min-height: 250px; }
+      .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 560px) {
+      .app { width: min(100% - 18px, 1180px); padding-top: 21px; }
+      .classic-header h1 { font-size: 28px; }
+      .classic-title-row { align-items: center; }
+      .dropzone, body.has-results .dropzone { min-height: 220px !important; padding: 24px 18px !important; border-radius: 18px; }
+      .format-line { max-height: 62px; overflow: hidden !important; }
+      .summary-grid { grid-template-columns: 1fr; }
+      .summary-card-head { flex-direction: column; }
+      .workspace-actions { width: 100%; display: grid; grid-template-columns: 1fr 1fr; }
+      .filter-row { align-items: stretch; flex-direction: column; }
+      .sidebar-actions { grid-template-columns: 1fr; }
+      .card-head { align-items: flex-start; flex-direction: column; }
+      .prompt-head { flex-direction: row; align-items: center; }
+      .details-content { padding-left: 17px; }
+      .data-table th { width: 38%; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .001ms !important; transition-duration: .001ms !important; }
+    }
+
+  
+    .header-tools {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .language-switch {
+      display: inline-grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2px;
+      padding: 3px;
+      border: 1px solid rgba(119, 135, 204, .30);
+      border-radius: 10px;
+      background: rgba(11, 15, 35, .64);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
+    }
+    .language-button {
+      min-width: 38px;
+      min-height: 29px;
+      padding: 4px 8px;
+      border: 0;
+      border-radius: 7px;
+      color: #8993bd;
+      background: transparent;
+      font: 700 11px/1 var(--mono);
+      letter-spacing: .04em;
+      cursor: pointer;
+      transition: color .14s ease, background .14s ease, box-shadow .14s ease;
+    }
+    .language-button:hover { color: #edf0ff; background: rgba(48, 57, 108, .56); }
+    .language-button.active {
+      color: #fff;
+      background: linear-gradient(120deg, rgba(57, 104, 184, .96), rgba(105, 59, 158, .96));
+      box-shadow: 0 5px 16px rgba(42, 44, 132, .25), inset 0 1px 0 rgba(255,255,255,.09);
+    }
+    @media (max-width: 900px) {
+      .header-tools { justify-content: flex-start; }
+    }
+
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="classic-header">
+      <div class="classic-heading">
+        <div class="classic-title-row">
+          <h1>ComfyUI Metadata Reader</h1>
+          <span class="version">v4.4</span>
+        </div>
+        <p data-i18n="appDescription">Промпты, параметры генерации, модели и workflow — прямо из файла.</p>
+      </div>
+      <div class="classic-header-actions">
+        <div class="header-tools">
+          <div class="language-switch" role="group" aria-label="Language">
+            <button class="language-button" type="button" data-lang="ru" aria-pressed="false">RU</button>
+            <button class="language-button" type="button" data-lang="en" aria-pressed="false">EN</button>
+          </div>
+          <div class="privacy" data-i18n="privacy">Файл никуда не отправляется</div>
+        </div>
+        <div class="actions">
+          <button class="button" id="clearResult" hidden data-i18n="clear">Очистить</button>
+          <button class="button primary" id="openFile" data-i18n="openFile">Открыть файл</button>
+        </div>
+      </div>
+    </header>
+
+    <section class="ingest" id="ingest">
+      <label class="dropzone" id="dropzone">
+        <input id="fileInput" type="file" accept="*/*">
+        <div class="drop-inner">
+          <span class="drop-mark" aria-hidden="true">↓</span>
+          <span class="drop-title" data-i18n="dropTitle">Перетащи файл сюда</span>
+          <span class="drop-sub" data-i18n="dropSub">Нажми здесь, перетащи файл или вставь его через Ctrl+V.</span>
+          <span class="format-line">PNG · JPEG · WebP · TIFF · GIF · MP4/MOV · WebM/MKV · AVI/WAV · MP3 · FLAC · OGG/Opus · AVIF/HEIC · SVG/XML · PDF · JSON/TXT · safetensors</span>
+        </div>
+      </label>
+      <div class="status-line" id="statusWrap" role="status" aria-live="polite">
+        <span class="spinner" aria-hidden="true"></span>
+        <span id="status" data-i18n="ready">Готов</span>
+      </div>
+    </section>
+
+    <section class="results" id="results">
+      <div class="top-grid">
+        <article class="card preview-panel">
+          <div class="preview-stage">
+            <img id="previewImage" class="preview-media" alt="Предпросмотр изображения" data-i18n-alt="previewAlt">
+            <video id="previewVideo" class="preview-media" controls muted playsinline></video>
+            <audio id="previewAudio" class="preview-media preview-audio" controls></audio>
+            <div id="previewFallback" class="preview-fallback" data-i18n="noPreview">Предпросмотр для этого формата недоступен</div>
+          </div>
+          <div class="file-block">
+            <div class="file-name" id="fileName"></div>
+            <div class="file-meta" id="fileInfo"></div>
+            <div class="sidebar-actions">
+              <button class="button small" id="newFile" data-i18n="anotherFile">Открыть другой</button>
+              <button class="button small" id="downloadMetadata" data-i18n="downloadMetadata">Скачать метаданные</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="card summary-card">
+          <div class="card-head summary-card-head">
+            <div class="workspace-title">
+              <h2 id="resultTitle" data-i18n="generationSettings">Параметры генерации</h2>
+              <p id="resultSubtitle"></p>
+            </div>
+            <div class="workspace-actions">
+              <button class="button small" id="copySummary" data-i18n="copySummary">Копировать сводку</button>
+              <button class="button small" id="downloadWorkflow" disabled data-i18n="downloadWorkflow">Скачать workflow</button>
+            </div>
+          </div>
+          <div class="filter-row">
+            <input class="search" id="metadataSearch" type="search" autocomplete="off" placeholder="Поиск по настройкам, моделям, LoRA и узлам" data-i18n-placeholder="searchPlaceholder">
+            <span class="filter-count" id="filterCount"></span>
+          </div>
+          <div class="panel-head compact-head">
+            <h3 data-i18n="coreSettings">Основные настройки</h3>
+            <span class="panel-note" id="parameterNote"></span>
+          </div>
+          <div class="summary-grid" id="summaryGrid"></div>
+        </article>
+      </div>
+
+      <div class="prompt-grid section">
+        <article class="card prompt-panel searchable-block">
+          <div class="card-head prompt-head">
+            <h3 data-i18n="positivePrompt">Положительный промпт</h3>
+            <div class="prompt-tools">
+              <span class="char-count" id="positiveCount"></span>
+              <button class="button ghost small copy-field" data-target="positivePrompt" data-i18n="copy">Копировать</button>
+            </div>
+          </div>
+          <textarea class="prompt-text" id="positivePrompt" readonly placeholder="Не найден" data-i18n-placeholder="notFound"></textarea>
+        </article>
+
+        <article class="card prompt-panel searchable-block">
+          <div class="card-head prompt-head">
+            <h3 data-i18n="negativePrompt">Негативный промпт</h3>
+            <div class="prompt-tools">
+              <span class="char-count" id="negativeCount"></span>
+              <button class="button ghost small copy-field" data-target="negativePrompt" data-i18n="copy">Копировать</button>
+            </div>
+          </div>
+          <textarea class="prompt-text" id="negativePrompt" readonly placeholder="Не найден" data-i18n-placeholder="notFound"></textarea>
+        </article>
+      </div>
+
+      <article class="card section details-card">
+        <div class="card-head">
+          <h2 data-i18n="details">Подробности</h2>
+          <span class="panel-note" data-i18n="detailsHint">Нажми на раздел, чтобы открыть его.</span>
+        </div>
+        <div id="details"></div>
+      </article>
+
+      <article class="card section raw-card">
+        <div class="card-head">
+          <h2 data-i18n="embeddedData">Встроенные данные</h2>
+          <div class="raw-toolbar">
+            <button class="button ghost small" id="toggleWrap" data-i18n="noWrap">Без переноса</button>
+            <button class="button ghost small" id="copyRaw" data-i18n="copyTab">Копировать вкладку</button>
+          </div>
+        </div>
+        <div class="tabs" id="tabs" role="tablist"></div>
+        <pre class="raw wrap" id="rawContent"></pre>
+      </article>
+    </section>
+
+    <footer data-i18n="footer">Файл обрабатывается только в браузере. Если редактор или сайт удалил метаданные, восстановить их по содержимому файла нельзя.</footer>
+  </main>
+
+  <div class="toast" id="toast" role="status"></div>
+  <script>
+(() => {
+  'use strict';
+
+  const $ = (s) => document.querySelector(s);
+  const dropzone = $('#dropzone');
+  const fileInput = $('#fileInput');
+  const openFileButton = $('#openFile');
+  const newFileButton = $('#newFile');
+  const clearResultButton = $('#clearResult');
+  const statusWrap = $('#statusWrap');
+  const statusEl = $('#status');
+  const resultsEl = $('#results');
+  const previewImage = $('#previewImage');
+  const previewVideo = $('#previewVideo');
+  const previewAudio = $('#previewAudio');
+  const previewFallback = $('#previewFallback');
+  const fileNameEl = $('#fileName');
+  const fileInfo = $('#fileInfo');
+  const resultTitle = $('#resultTitle');
+  const resultSubtitle = $('#resultSubtitle');
+  const summaryGrid = $('#summaryGrid');
+  const parameterNote = $('#parameterNote');
+  const positivePrompt = $('#positivePrompt');
+  const negativePrompt = $('#negativePrompt');
+  const positiveCount = $('#positiveCount');
+  const negativeCount = $('#negativeCount');
+  const details = $('#details');
+  const tabs = $('#tabs');
+  const rawContent = $('#rawContent');
+  const metadataSearch = $('#metadataSearch');
+  const filterCount = $('#filterCount');
+  const downloadWorkflow = $('#downloadWorkflow');
+  const downloadMetadata = $('#downloadMetadata');
+  const toggleWrap = $('#toggleWrap');
+  const toast = $('#toast');
+  const languageButtons = [...document.querySelectorAll('.language-button')];
+
+  let currentRawKey = '';
+  let currentRawData = new Map();
+  let currentWorkflow = null;
+  let currentPromptObj = null;
+  let currentMetadata = null;
+  let currentResult = null;
+  let currentFile = null;
+  let previewUrl = null;
+  let parseGeneration = 0;
+  let toastTimer = 0;
+
+  const textDecoder = new TextDecoder('utf-8');
+  const latinDecoder = new TextDecoder('latin1');
+
+  const TRANSLATIONS = {
+    ru: {
+      appDescription: 'Промпты, параметры генерации, модели и workflow — прямо из файла.',
+      privacy: 'Файл никуда не отправляется',
+      clear: 'Очистить',
+      openFile: 'Открыть файл',
+      dropTitle: 'Перетащи файл сюда',
+      dropSub: 'Нажми здесь, перетащи файл или вставь его через Ctrl+V.',
+      ready: 'Готов',
+      previewAlt: 'Предпросмотр изображения',
+      noPreview: 'Предпросмотр для этого формата недоступен',
+      anotherFile: 'Открыть другой',
+      downloadMetadata: 'Скачать метаданные',
+      generationSettings: 'Параметры генерации',
+      copySummary: 'Копировать сводку',
+      downloadWorkflow: 'Скачать workflow',
+      searchPlaceholder: 'Поиск по настройкам, моделям, LoRA и узлам',
+      coreSettings: 'Основные настройки',
+      positivePrompt: 'Положительный промпт',
+      negativePrompt: 'Негативный промпт',
+      copy: 'Копировать',
+      notFound: 'Не найден',
+      details: 'Подробности',
+      detailsHint: 'Нажми на раздел, чтобы открыть его.',
+      embeddedData: 'Встроенные данные',
+      noWrap: 'Без переноса',
+      wrapLines: 'Перенос строк',
+      copyTab: 'Копировать вкладку',
+      footer: 'Файл обрабатывается только в браузере. Если редактор или сайт удалил метаданные, восстановить их по содержимому файла нельзя.',
+      byteUnits: ['Б', 'КБ', 'МБ', 'ГБ'],
+      countForms: {
+        record: ['запись', 'записи', 'записей'],
+        metadataField: ['поле метаданных', 'поля метаданных', 'полей метаданных'],
+        workflowNode: ['узел workflow', 'узла workflow', 'узлов workflow'],
+        setting: ['настройка', 'настройки', 'настроек'],
+        char: ['знак', 'знака', 'знаков'],
+      },
+      jsonOutputError: 'Не удалось вывести JSON: {error}',
+      compressedPngUnsupported: 'Браузер не поддерживает распаковку сжатых PNG-метаданных.',
+      invalidPng: 'Файл не похож на корректный PNG.',
+      invalidWebp: 'Файл не похож на корректный WebP.',
+      invalidJpeg: 'Файл не похож на корректный JPEG.',
+      invalidGif: 'Файл не похож на корректный GIF.',
+      invalidRiff: 'Файл не похож на RIFF-контейнер.',
+      invalidFlac: 'Файл не похож на FLAC.',
+      textFormat: 'Текст',
+      jsonTextFormat: 'JSON или текст',
+      unknownFormat: 'Неизвестный формат',
+      wholeFile: 'весь файл',
+      fileStart: 'начало файла',
+      fileEnd: 'конец файла',
+      hiddenText: '… скрыто {size}',
+      empty: 'Не найдено',
+      nodesTruncated: 'Показаны первые {limit} из {total} узлов. Полный workflow доступен ниже.',
+      noEmbeddedData: 'Встроенные данные не найдены',
+      filterCount: '{visible} из {total}',
+      unspecifiedType: 'тип не указан',
+      partialScan: 'частичное сканирование',
+      resultSubtitle: '{format} · {metadata} · {nodes}',
+      size: 'Размер',
+      model: 'Модель',
+      frames: 'Кадры',
+      settings: 'Настройки',
+      models: 'Модели',
+      samplerNodes: 'Узлы сэмплера',
+      workflowNodes: 'Узлы workflow',
+      metadata: 'Метаданные',
+      reading: 'Читаю {name}…',
+      parsing: 'Разбираю {format}…',
+      collecting: 'Собираю параметры генерации…',
+      noMetadata: 'Метаданные не найдены. Формат {format} распознан, но генерационных тегов в файле нет.',
+      done: 'Готово: {format} · {count}{tags}{scan}',
+      coreTags: ' · {tags}',
+      scannedEnds: ' · проверены начало и конец файла',
+      readError: 'Не удалось прочитать файл.',
+      copied: 'Скопировано',
+      emptyField: 'Поле пустое',
+      doneButton: 'Готово',
+      summarySize: 'Размер',
+      summaryModels: 'Модели',
+      workflowSaved: 'Workflow сохранён',
+      metadataSaved: 'Метаданные сохранены',
+    },
+    en: {
+      appDescription: 'Read prompts, generation settings, models, and workflows directly from the file.',
+      privacy: 'Nothing is uploaded',
+      clear: 'Clear',
+      openFile: 'Open file',
+      dropTitle: 'Drop a file here',
+      dropSub: 'Click this area, drop a file, or paste one with Ctrl+V.',
+      ready: 'Ready',
+      previewAlt: 'Image preview',
+      noPreview: 'Preview is unavailable for this format',
+      anotherFile: 'Choose another file',
+      downloadMetadata: 'Download metadata',
+      generationSettings: 'Generation settings',
+      copySummary: 'Copy summary',
+      downloadWorkflow: 'Download workflow',
+      searchPlaceholder: 'Search settings, models, LoRAs, and nodes',
+      coreSettings: 'Core settings',
+      positivePrompt: 'Positive prompt',
+      negativePrompt: 'Negative prompt',
+      copy: 'Copy',
+      notFound: 'Not found',
+      details: 'Details',
+      detailsHint: 'Open a section to inspect it.',
+      embeddedData: 'Embedded data',
+      noWrap: 'No wrap',
+      wrapLines: 'Wrap lines',
+      copyTab: 'Copy tab',
+      footer: 'The file stays on your device. If an editor or website removed its metadata, it cannot be recovered from the media itself.',
+      byteUnits: ['B', 'KB', 'MB', 'GB'],
+      countForms: {
+        record: ['record', 'records'],
+        metadataField: ['metadata field', 'metadata fields'],
+        workflowNode: ['workflow node', 'workflow nodes'],
+        setting: ['setting', 'settings'],
+        char: ['character', 'characters'],
+      },
+      jsonOutputError: 'Could not display JSON: {error}',
+      compressedPngUnsupported: 'This browser cannot decompress compressed PNG metadata.',
+      invalidPng: 'The file does not appear to be a valid PNG.',
+      invalidWebp: 'The file does not appear to be a valid WebP.',
+      invalidJpeg: 'The file does not appear to be a valid JPEG.',
+      invalidGif: 'The file does not appear to be a valid GIF.',
+      invalidRiff: 'The file does not appear to be a RIFF container.',
+      invalidFlac: 'The file does not appear to be FLAC.',
+      textFormat: 'Text',
+      jsonTextFormat: 'JSON or text',
+      unknownFormat: 'Unknown format',
+      wholeFile: 'whole file',
+      fileStart: 'file start',
+      fileEnd: 'file end',
+      hiddenText: '… {size} more text hidden',
+      empty: 'Not found',
+      nodesTruncated: 'Showing the first {limit} of {total} nodes. The full workflow is available below.',
+      noEmbeddedData: 'No embedded data found',
+      filterCount: '{visible} of {total}',
+      unspecifiedType: 'type not specified',
+      partialScan: 'partial scan',
+      resultSubtitle: '{format} · {metadata} · {nodes}',
+      size: 'Size',
+      model: 'Model',
+      frames: 'Frames',
+      settings: 'Settings',
+      models: 'Models',
+      samplerNodes: 'Sampler nodes',
+      workflowNodes: 'Workflow nodes',
+      metadata: 'Metadata',
+      reading: 'Reading {name}…',
+      parsing: 'Parsing {format}…',
+      collecting: 'Collecting generation settings…',
+      noMetadata: 'No metadata found. {format} was recognized, but the file contains no readable generation tags.',
+      done: 'Done: {format} · {count}{tags}{scan}',
+      coreTags: ' · {tags}',
+      scannedEnds: ' · checked the start and end of the file',
+      readError: 'Could not read the file.',
+      copied: 'Copied',
+      emptyField: 'The field is empty',
+      doneButton: 'Done',
+      summarySize: 'Size',
+      summaryModels: 'Models',
+      workflowSaved: 'Workflow saved',
+      metadataSaved: 'Metadata saved',
+    }
+  };
+
+  let locale = (() => {
+    let saved = '';
+    try { saved = localStorage.getItem('comfy-metadata-reader-language') || ''; } catch (_) {}
+    if (saved === 'ru' || saved === 'en') return saved;
+    return navigator.language?.toLowerCase().startsWith('ru') ? 'ru' : 'en';
+  })();
+
+  let lastStatus = {key: 'ready', params: {}, type: ''};
+
+  function t(key, params = {}) {
+    const template = TRANSLATIONS[locale]?.[key] ?? TRANSLATIONS.en[key] ?? key;
+    if (typeof template !== 'string') return template;
+    return template.replace(/\{(\w+)\}/g, (_, name) => params[name] ?? `{${name}}`);
+  }
+
+  function displayFormat(value) {
+    const map = {
+      'Текст': t('textFormat'),
+      'JSON/текст': t('jsonTextFormat'),
+      'Неизвестный формат': t('unknownFormat'),
+    };
+    return map[value] || value;
+  }
+
+  function localeTag() {
+    return locale === 'ru' ? 'ru-RU' : 'en-US';
+  }
+
+  function pluralFormIndex(count) {
+    if (locale !== 'ru') return Number(count) === 1 ? 0 : 1;
+    const value = Math.abs(Number(count)) % 100;
+    const last = value % 10;
+    if (value > 10 && value < 20) return 2;
+    if (last === 1) return 0;
+    if (last >= 2 && last <= 4) return 1;
+    return 2;
+  }
+
+  function countPhrase(count, formKey) {
+    const forms = TRANSLATIONS[locale].countForms[formKey];
+    const form = forms[pluralFormIndex(count)] ?? forms[forms.length - 1];
+    return `${Number(count).toLocaleString(localeTag())} ${form}`;
+  }
+
+  function setStatusKey(key, params = {}, type = '') {
+    lastStatus = {key, params, type};
+    setStatus(t(key, params), type);
+  }
+
+  function applyLocale({rerender = true} = {}) {
+    document.documentElement.lang = locale;
+    document.title = `ComfyUI Metadata Reader v4.4 — ${locale.toUpperCase()}`;
+
+    for (const element of document.querySelectorAll('[data-i18n]')) {
+      element.textContent = t(element.dataset.i18n);
+    }
+    for (const element of document.querySelectorAll('[data-i18n-placeholder]')) {
+      element.placeholder = t(element.dataset.i18nPlaceholder);
+    }
+    for (const element of document.querySelectorAll('[data-i18n-alt]')) {
+      element.alt = t(element.dataset.i18nAlt);
+    }
+    for (const button of languageButtons) {
+      const active = button.dataset.lang === locale;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    }
+
+    try { localStorage.setItem('comfy-metadata-reader-language', locale); } catch (_) {}
+
+    if (rerender && currentFile && currentMetadata && currentResult) {
+      render(currentFile, currentMetadata, currentPromptObj, currentWorkflow, currentResult);
+    }
+    setStatus(t(lastStatus.key, lastStatus.params), lastStatus.type);
+  }
+
+  const setStatus = (text, type = '') => {
+    statusEl.textContent = text;
+    statusWrap.className = `status-line ${type}`.trim();
+  };
+
+  const yieldToBrowser = () => new Promise(resolve => requestAnimationFrame(() => resolve()));
+
+  function showToast(message) {
+    clearTimeout(toastTimer);
+    toast.textContent = message;
+    toast.classList.add('show');
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 1600);
+  }
+
+  function downloadTextFile(name, text, type = 'application/json') {
+    const blob = new Blob([text], {type});
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = name;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  const formatBytes = (bytes) => {
+    const units = t('byteUnits');
+    let value = bytes;
+    let i = 0;
+    while (value >= 1024 && i < units.length - 1) { value /= 1024; i++; }
+    return `${value.toFixed(i ? 2 : 0)} ${units[i]}`;
+  };
+
+  function normalizeLooseJsonTokens(input) {
+    const text = String(input || '');
+    let out = '';
+    let inString = false;
+    let escaped = false;
+    const boundary = ch => !ch || /[\s,:[\]{}]/.test(ch);
+    const tokens = ['-Infinity', 'Infinity', 'NaN', 'undefined'];
+
+    for (let index = 0; index < text.length; index++) {
+      const char = text[index];
+      if (inString) {
+        out += char;
+        if (escaped) escaped = false;
+        else if (char === '\\') escaped = true;
+        else if (char === '"') inString = false;
+        continue;
+      }
+
+      if (char === '"') {
+        inString = true;
+        out += char;
+        continue;
+      }
+
+      let replaced = false;
+      for (const token of tokens) {
+        if (
+          text.startsWith(token, index) &&
+          boundary(text[index - 1]) &&
+          boundary(text[index + token.length])
+        ) {
+          out += 'null';
+          index += token.length - 1;
+          replaced = true;
+          break;
+        }
+      }
+      if (!replaced) out += char;
+    }
+    return out;
+  }
+
+  const safeJsonParse = (value) => {
+    if (value == null || typeof value !== 'string') return value;
+    const source = value.trim();
+    if (!source || !['{','[','"'].includes(source[0])) return value;
+
+    const parseOne = text => {
+      try {
+        return JSON.parse(text);
+      } catch (_) {
+        try {
+          return JSON.parse(normalizeLooseJsonTokens(text));
+        } catch (_) {
+          return text;
+        }
+      }
+    };
+
+    let parsed = parseOne(source);
+    if (typeof parsed === 'string' && /^[\[{]/.test(parsed.trim())) {
+      parsed = parseOne(parsed.trim());
+    }
+    return parsed;
+  };
+
+  function safeJsonStringify(value, spacing = 0) {
+    const ancestors = [];
+    try {
+      return JSON.stringify(value, function (key, current) {
+        if (typeof current !== 'object' || current === null) return current;
+        while (ancestors.length && ancestors[ancestors.length - 1] !== this) ancestors.pop();
+        if (ancestors.includes(current)) return '[Circular]';
+        ancestors.push(current);
+        return current;
+      }, spacing);
+    } catch (error) {
+      return t('jsonOutputError', {error: error?.message || error});
+    }
+  }
+
+  const pretty = (value) => {
+    if (typeof value === 'string') {
+      const parsed = safeJsonParse(value);
+      if (parsed !== value) return safeJsonStringify(parsed, 2);
+      return value;
+    }
+    return safeJsonStringify(value, 2);
+  };
+
+  async function inflate(data) {
+    if (!('DecompressionStream' in window)) throw new Error(t('compressedPngUnsupported'));
+    const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate'));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+
+  async function parsePng(buffer) {
+    const bytes = new Uint8Array(buffer);
+    const dv = new DataView(buffer);
+    if (bytes.length < 8 || dv.getUint32(0) !== 0x89504e47 || dv.getUint32(4) !== 0x0d0a1a0a) {
+      throw new Error(t('invalidPng'));
+    }
+    const out = {};
+    let offset = 8;
+    while (offset + 12 <= bytes.length) {
+      const length = dv.getUint32(offset, false);
+      const type = String.fromCharCode(...bytes.slice(offset + 4, offset + 8));
+      const dataStart = offset + 8;
+      const dataEnd = dataStart + length;
+      if (dataEnd + 4 > bytes.length) break;
+
+      if (type === 'tEXt' || type === 'comf') {
+        let zero = dataStart;
+        while (zero < dataEnd && bytes[zero] !== 0) zero++;
+        const key = latinDecoder.decode(bytes.slice(dataStart, zero));
+        out[key] = textDecoder.decode(bytes.slice(zero + 1, dataEnd));
+      } else if (type === 'zTXt') {
+        let zero = dataStart;
+        while (zero < dataEnd && bytes[zero] !== 0) zero++;
+        const key = latinDecoder.decode(bytes.slice(dataStart, zero));
+        const method = bytes[zero + 1];
+        if (method === 0) out[key] = textDecoder.decode(await inflate(bytes.slice(zero + 2, dataEnd)));
+      } else if (type === 'iTXt') {
+        let p = dataStart;
+        while (p < dataEnd && bytes[p] !== 0) p++;
+        const key = latinDecoder.decode(bytes.slice(dataStart, p));
+        p++;
+        const compressed = bytes[p++] === 1;
+        const method = bytes[p++];
+        while (p < dataEnd && bytes[p] !== 0) p++; // language tag
+        p++;
+        while (p < dataEnd && bytes[p] !== 0) p++; // translated keyword
+        p++;
+        let payload = bytes.slice(p, dataEnd);
+        if (compressed && method === 0) payload = await inflate(payload);
+        out[key] = textDecoder.decode(payload);
+      }
+      offset = dataEnd + 4;
+      if (type === 'IEND') break;
+    }
+    return out;
+  }
+
+  function parseTiffExif(input) {
+    let bytes = input;
+    if (bytes.length >= 6 && latinDecoder.decode(bytes.slice(0, 6)) === 'Exif\0\0') bytes = bytes.slice(6);
+    if (bytes.length < 8) return {};
+    const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const order = latinDecoder.decode(bytes.slice(0, 2));
+    const little = order === 'II';
+    if (!little && order !== 'MM') return {};
+    const u16 = (o) => dv.getUint16(o, little);
+    const u32 = (o) => dv.getUint32(o, little);
+    if (u16(2) !== 42) return {};
+    const typeSize = {1:1,2:1,3:2,4:4,5:8,7:1,9:4,10:8};
+    const strings = [];
+    const visited = new Set();
+
+    const parseIfd = (ifdOffset, depth = 0) => {
+      if (depth > 16 || !ifdOffset || ifdOffset + 2 > bytes.length || visited.has(ifdOffset)) return;
+      visited.add(ifdOffset);
+      const count = u16(ifdOffset);
+      for (let i = 0; i < count; i++) {
+        const e = ifdOffset + 2 + i * 12;
+        if (e + 12 > bytes.length) break;
+        const tag = u16(e);
+        const type = u16(e + 2);
+        const n = u32(e + 4);
+        const size = (typeSize[type] || 1) * n;
+        let start = size <= 4 ? e + 8 : u32(e + 8);
+        if (start < 0 || start + size > bytes.length) continue;
+        if (type === 2 || type === 7) {
+          let raw = bytes.slice(start, start + size);
+          while (raw.length && raw[raw.length - 1] === 0) raw = raw.slice(0, -1);
+          let value = textDecoder.decode(raw).replace(/^ASCII\0\0\0/, '').trim();
+          if (value) strings.push(value);
+        }
+        if (tag === 0x8769 || tag === 0x8825) parseIfd(u32(e + 8), depth + 1);
+      }
+      const nextPos = ifdOffset + 2 + count * 12;
+      if (nextPos + 4 <= bytes.length) parseIfd(u32(nextPos), depth + 1);
+    };
+    parseIfd(u32(4));
+
+    const out = {};
+    for (const value of strings) {
+      const idx = value.indexOf(':');
+      if (idx > 0) out[value.slice(0, idx)] = value.slice(idx + 1);
+      else if (/^[\[{]/.test(value)) out.exif = value;
+    }
+    return out;
+  }
+
+  function parseWebp(buffer) {
+    const bytes = new Uint8Array(buffer);
+    if (bytes.length < 12 || latinDecoder.decode(bytes.slice(0,4)) !== 'RIFF' || latinDecoder.decode(bytes.slice(8,12)) !== 'WEBP') {
+      throw new Error(t('invalidWebp'));
+    }
+    const dv = new DataView(buffer);
+    const out = {};
+    let offset = 12;
+    while (offset + 8 <= bytes.length) {
+      const type = latinDecoder.decode(bytes.slice(offset, offset + 4));
+      const length = dv.getUint32(offset + 4, true);
+      const start = offset + 8;
+      const end = Math.min(start + length, bytes.length);
+      if (type === 'EXIF') Object.assign(out, parseTiffExif(bytes.slice(start, end)));
+      if (type === 'XMP ') {
+        const xmp = textDecoder.decode(bytes.slice(start, end));
+        const matches = xmp.match(/(?:prompt|workflow|parameters):[^<]+/g) || [];
+        for (const m of matches) { const i = m.indexOf(':'); out[m.slice(0,i)] = m.slice(i+1); }
+      }
+      offset = start + length + (length % 2);
+    }
+    return out;
+  }
+
+
+  const cleanKey = (key) => String(key ?? '')
+    .replace(/\0/g, '')
+    .replace(/^com\.apple\.quicktime\./i, '')
+    .replace(/^org\.comfyui\./i, '')
+    .trim();
+
+  function addMeta(out, key, value) {
+    key = cleanKey(key);
+    if (!key || value === undefined || value === null) return;
+    if (value instanceof Uint8Array) value = textDecoder.decode(value);
+    if (typeof value === 'string') {
+      value = value.replace(/^\0+|\0+$/g, '').trim();
+      if (!value) return;
+    }
+    if (out[key] === undefined) { out[key] = value; return; }
+    if (safeJsonStringify(out[key]) === safeJsonStringify(value)) return;
+    let index = 2;
+    while (out[`${key} [${index}]`] !== undefined) index++;
+    out[`${key} [${index}]`] = value;
+  }
+
+  function mergeMeta(target, source) {
+    for (const [key, value] of Object.entries(source || {})) addMeta(target, key, value);
+    return target;
+  }
+
+  function decodeUtf16BE(bytes) {
+    const swapped = new Uint8Array(bytes.length);
+    for (let i = 0; i + 1 < bytes.length; i += 2) {
+      swapped[i] = bytes[i + 1];
+      swapped[i + 1] = bytes[i];
+    }
+    return new TextDecoder('utf-16le').decode(swapped);
+  }
+
+  function decodeTextBytes(bytes, encoding = 'utf-8') {
+    if (!(bytes instanceof Uint8Array)) bytes = new Uint8Array(bytes);
+    try {
+      if (encoding === 'utf-16be') return decodeUtf16BE(bytes);
+      return new TextDecoder(encoding).decode(bytes);
+    } catch (_) {
+      return textDecoder.decode(bytes);
+    }
+  }
+
+  const META_KEY_PATTERN = '(?:positive[_ .-]?prompt|negative[_ .-]?prompt|prompt|workflow|parameters?|generation[_ .-]?(?:data|info)|extra[_ .-]?metadata|seed|steps?|cfg(?:[_ .-]?scale)?|guidance|sampler(?:[_ .-]?name)?|scheduler|model(?:[_ .-]?name)?|lora(?:[_ .-]?name)?|comment|description)';
+
+  function decodeXmlEntities(value) {
+    return String(value || '')
+      .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'")
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&');
+  }
+
+  function metadataTextWindows(input) {
+    const text = String(input || '');
+    const fullLimit = 2 * 1024 * 1024;
+    if (text.length <= fullLimit) return [text];
+
+    const lower = text.toLowerCase();
+    const needles = [
+      'prompt', 'workflow', 'parameters', 'generation data', 'generation_info',
+      'extra_metadata', 'seed', 'steps', 'sampler', 'scheduler', 'model', 'lora',
+      'cfg', 'guidance', 'comment', 'description'
+    ];
+    const ranges = [];
+    const radius = 96 * 1024;
+    const maxWindows = 48;
+
+    for (const needle of needles) {
+      let from = 0;
+      while (ranges.length < maxWindows) {
+        const index = lower.indexOf(needle, from);
+        if (index < 0) break;
+        const start = Math.max(0, index - radius);
+        const end = Math.min(text.length, index + needle.length + radius);
+        const last = ranges[ranges.length - 1];
+        if (last && start <= last[1] + 4096) last[1] = Math.max(last[1], end);
+        else ranges.push([start, end]);
+        from = index + needle.length;
+      }
+      if (ranges.length >= maxWindows) break;
+    }
+
+    if (!ranges.length) {
+      return [
+        text.slice(0, 512 * 1024),
+        text.slice(Math.max(0, text.length - 512 * 1024)),
+      ];
+    }
+    return ranges.map(([start, end]) => text.slice(start, end));
+  }
+
+  function parseXmpText(input, out = {}) {
+    const keyTest = /prompt|workflow|parameter|comment|description|seed|step|sampler|scheduler|model|lora|cfg|guidance|generation|metadata/i;
+    let parsedItems = 0;
+    const maxItems = 2048;
+
+    for (const segmentRaw of metadataTextWindows(input)) {
+      if (parsedItems >= maxItems) break;
+      const segment = String(segmentRaw || '');
+
+      const doubleAttr = new RegExp(
+        '(?:^|[\\s<])(?:[\\w.-]+:)?(' + META_KEY_PATTERN + ')\\s*=\\s*"([^"\\r\\n]{0,262144})"',
+        'gim'
+      );
+      const singleAttr = new RegExp(
+        "(?:^|[\\s<])(?:[\\w.-]+:)?(" + META_KEY_PATTERN + ")\\s*=\\s*'([^'\\r\\n]{0,262144})'",
+        'gim'
+      );
+
+      for (const attrRe of [doubleAttr, singleAttr]) {
+        let match;
+        while (parsedItems < maxItems && (match = attrRe.exec(segment))) {
+          addMeta(out, match[1], decodeXmlEntities(match[2]).trim());
+          parsedItems++;
+          if (match[0].length === 0) attrRe.lastIndex++;
+        }
+      }
+
+      const openTag = new RegExp(
+        '<((?:[\\w.-]+:)?(' + META_KEY_PATTERN + '))\\b[^>]{0,4096}>',
+        'gim'
+      );
+      const lower = segment.toLowerCase();
+      let match;
+      while (parsedItems < maxItems && (match = openTag.exec(segment))) {
+        const fullName = match[1];
+        const key = match[2];
+        if (!keyTest.test(key)) continue;
+
+        const closeToken = `</${fullName}>`.toLowerCase();
+        const valueStart = openTag.lastIndex;
+        const closeAt = lower.indexOf(closeToken, valueStart);
+        if (closeAt < 0 || closeAt - valueStart > 512 * 1024) continue;
+
+        const value = decodeXmlEntities(
+          segment
+            .slice(valueStart, closeAt)
+            .replace(/<[^>]{0,4096}>/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+        );
+        if (value) addMeta(out, key, value);
+        parsedItems++;
+        openTag.lastIndex = closeAt + closeToken.length;
+      }
+    }
+    return out;
+  }
+
+  function parseJpeg(buffer) {
+    const bytes = new Uint8Array(buffer);
+    const dv = new DataView(buffer);
+    if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) throw new Error(t('invalidJpeg'));
+    const out = {};
+    let offset = 2;
+    while (offset + 4 <= bytes.length) {
+      if (bytes[offset] !== 0xff) { offset++; continue; }
+      const marker = bytes[offset + 1];
+      offset += 2;
+      if (marker === 0xd9 || marker === 0xda) break;
+      if (marker >= 0xd0 && marker <= 0xd7) continue;
+      if (offset + 2 > bytes.length) break;
+      const size = dv.getUint16(offset, false);
+      if (size < 2 || offset + size > bytes.length) break;
+      const start = offset + 2;
+      const end = offset + size;
+      const payload = bytes.slice(start, end);
+      if (marker === 0xe1) {
+        const head = latinDecoder.decode(payload.slice(0, 32));
+        if (head.startsWith('Exif\0\0')) mergeMeta(out, parseTiffExif(payload));
+        else if (/xmp|adobe/i.test(head)) parseXmpText(textDecoder.decode(payload), out);
+      } else if (marker === 0xfe) {
+        addMeta(out, 'comment', textDecoder.decode(payload));
+      } else if (marker === 0xed || marker === 0xe2) {
+        const text = textDecoder.decode(payload);
+        parseXmpText(text, out);
+        if (/prompt|workflow|parameters/i.test(text)) addMeta(out, `APP${marker - 0xe0}`, text);
+      }
+      offset = end;
+    }
+    return out;
+  }
+
+  function parseGif(buffer) {
+    const bytes = new Uint8Array(buffer);
+    const head = latinDecoder.decode(bytes.slice(0, 6));
+    if (!/^GIF8[79]a$/.test(head)) throw new Error(t('invalidGif'));
+    const out = {};
+    let offset = 13;
+    const skipSubBlocks = (start) => {
+      const chunks = [];
+      let p = start;
+      while (p < bytes.length) {
+        const size = bytes[p++];
+        if (!size) break;
+        chunks.push(bytes.slice(p, Math.min(p + size, bytes.length)));
+        p += size;
+      }
+      return { end: p, data: chunks.length ? concatBytes(chunks) : new Uint8Array() };
+    };
+    while (offset < bytes.length) {
+      const introducer = bytes[offset++];
+      if (introducer === 0x3b) break;
+      if (introducer === 0x2c) {
+        if (offset + 9 > bytes.length) break;
+        const packed = bytes[offset + 8];
+        offset += 9;
+        if (packed & 0x80) offset += 3 * (2 ** ((packed & 7) + 1));
+        offset++; // LZW minimum code size
+        offset = skipSubBlocks(offset).end;
+      } else if (introducer === 0x21) {
+        const label = bytes[offset++];
+        if (label === 0xfe) {
+          const block = skipSubBlocks(offset); offset = block.end;
+          addMeta(out, 'comment', textDecoder.decode(block.data));
+        } else if (label === 0xff) {
+          const appSize = bytes[offset++];
+          const app = latinDecoder.decode(bytes.slice(offset, offset + appSize));
+          offset += appSize;
+          const block = skipSubBlocks(offset); offset = block.end;
+          const text = textDecoder.decode(block.data);
+          addMeta(out, app || 'application', text);
+          if (/xmp/i.test(app)) parseXmpText(text, out);
+        } else {
+          const blockSize = bytes[offset++] || 0;
+          offset += blockSize;
+          offset = skipSubBlocks(offset).end;
+        }
+      } else break;
+    }
+    return out;
+  }
+
+  function concatBytes(chunks) {
+    const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+    const out = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) { out.set(chunk, offset); offset += chunk.length; }
+    return out;
+  }
+
+  function readAtomHeader(bytes, dv, offset, end) {
+    if (offset + 8 > end) return null;
+    let size = dv.getUint32(offset, false);
+    const typeBytes = bytes.slice(offset + 4, offset + 8);
+    const type = latinDecoder.decode(typeBytes);
+    let header = 8;
+    if (size === 1) {
+      if (offset + 16 > end) return null;
+      const high = dv.getUint32(offset + 8, false);
+      const low = dv.getUint32(offset + 12, false);
+      size = high * 4294967296 + low;
+      header = 16;
+    } else if (size === 0) size = end - offset;
+    if (!Number.isFinite(size) || size < header || offset + size > end) return null;
+    return { start: offset, size, type, typeBytes, header, payload: offset + header, end: offset + size };
+  }
+
+  function decodeMp4Data(bytes, dv, atom) {
+    let start = atom.payload;
+    if (atom.type === 'data' && start + 8 <= atom.end) start += 8;
+    const raw = bytes.slice(start, atom.end);
+    const text = textDecoder.decode(raw).replace(/^\0+|\0+$/g, '').trim();
+    return text || latinDecoder.decode(raw).replace(/^\0+|\0+$/g, '').trim();
+  }
+
+  function parseIsoBmff(buffer, fragmentMode = false) {
+    const bytes = new Uint8Array(buffer);
+    const dv = new DataView(buffer);
+    const out = {};
+    const standardNames = {
+      '©nam': 'title', '©cmt': 'comment', '©des': 'description', 'desc': 'description',
+      '©too': 'encoder', '©ART': 'artist', '©alb': 'album', '©gen': 'genre',
+      'cprt': 'copyright', 'name': 'name'
+    };
+    const containers = new Set(['moov','udta','trak','mdia','minf','stbl','edts','dinf','mvex','moof','traf','mfra','tref','ipro','sinf','schi']);
+    const visited = new Set();
+    let atomBudget = 120000;
+
+    const listAtoms = (start, end) => {
+      const atoms = [];
+      let p = Math.max(0, start);
+      let localBudget = 25000;
+      while (p + 8 <= end && localBudget-- > 0 && atomBudget-- > 0) {
+        const atom = readAtomHeader(bytes, dv, p, end);
+        if (!atom || atom.end <= p) break;
+        atoms.push(atom);
+        p = atom.end;
+      }
+      return atoms;
+    };
+
+    const parseDataChildren = (item) => {
+      const values = [];
+      for (const child of listAtoms(item.payload, item.end)) {
+        if (child.type === 'data') values.push(decodeMp4Data(bytes, dv, child));
+      }
+      if (!values.length && item.end - item.payload <= 16 * 1024 * 1024) {
+        const raw = bytes.slice(item.payload, item.end);
+        const decoded = textDecoder.decode(raw).replace(/[\0\x01-\x08\x0b\x0c\x0e-\x1f]+/g, '').trim();
+        if (decoded) values.push(decoded);
+      }
+      return values.filter(Boolean);
+    };
+
+    const parseKeys = (atom) => {
+      const keys = [];
+      let p = atom.payload + 4;
+      if (p + 4 > atom.end) return keys;
+      const count = Math.min(dv.getUint32(p, false), 100000); p += 4;
+      for (let i = 0; i < count && p + 8 <= atom.end; i++) {
+        const size = dv.getUint32(p, false);
+        if (size < 8 || p + size > atom.end) break;
+        const key = textDecoder.decode(bytes.slice(p + 8, p + size)).replace(/\0/g, '').trim();
+        keys.push(key);
+        p += size;
+      }
+      return keys;
+    };
+
+    const parseFreeform = (item) => {
+      let mean = '', name = '', value = '';
+      for (const child of listAtoms(item.payload, item.end)) {
+        const rawStart = child.payload + (['mean','name'].includes(child.type) ? 4 : 0);
+        const decoded = textDecoder.decode(bytes.slice(rawStart, child.end)).replace(/\0/g, '').trim();
+        if (child.type === 'mean') mean = decoded;
+        else if (child.type === 'name') name = decoded;
+        else if (child.type === 'data') value = decodeMp4Data(bytes, dv, child);
+      }
+      if (value) addMeta(out, name || mean || 'freeform', value);
+    };
+
+    const parseIlst = (atom, keys = []) => {
+      const token = `ilst:${atom.start}:${atom.end}`;
+      if (visited.has(token)) return;
+      visited.add(token);
+      for (const item of listAtoms(atom.payload, atom.end)) {
+        if (item.type === '----') { parseFreeform(item); continue; }
+        if (item.start + 8 > item.end) continue;
+        const index = dv.getUint32(item.start + 4, false);
+        const key = keys[index - 1] || standardNames[item.type] || item.type;
+        for (const value of parseDataChildren(item)) addMeta(out, key, value);
+      }
+    };
+
+    const jobs = [];
+    const pushRange = (start, end, depth = 0, kind = 'range') => {
+      if (depth > 18 || start < 0 || end > bytes.length || end - start < 8) return;
+      const token = `${kind}:${start}:${end}`;
+      if (visited.has(token)) return;
+      visited.add(token);
+      jobs.push({start, end, depth, kind});
+    };
+
+    pushRange(0, bytes.length, 0, 'range');
+
+    // A tail slice of a large MP4 starts in the middle of mdat. Locate complete metadata atoms
+    // instead of pretending byte zero is a valid top-level atom boundary.
+    if (fragmentMode) {
+      const signatures = new Set(['moov','udta','meta','ilst']);
+      let candidates = 0;
+      for (let i = 4; i + 4 <= bytes.length && candidates < 4096; i++) {
+        const first = bytes[i];
+        if (first !== 0x6d && first !== 0x75 && first !== 0x69) continue;
+        const type = latinDecoder.decode(bytes.slice(i, i + 4));
+        if (!signatures.has(type)) continue;
+        const atom = readAtomHeader(bytes, dv, i - 4, bytes.length);
+        if (!atom || atom.type !== type) continue;
+        candidates++;
+        if (type === 'meta') pushRange(atom.start, atom.end, 0, 'meta');
+        else if (type === 'ilst') parseIlst(atom, []);
+        else pushRange(atom.payload, atom.end, 0, 'range');
+      }
+    }
+
+    while (jobs.length && atomBudget > 0) {
+      const job = jobs.pop();
+      if (job.kind === 'meta') {
+        const atom = readAtomHeader(bytes, dv, job.start, job.end);
+        if (!atom || atom.type !== 'meta') continue;
+        const children = listAtoms(atom.payload + 4, atom.end);
+        let keys = [];
+        for (const child of children) if (child.type === 'keys') keys = parseKeys(child);
+        for (const child of children) {
+          if (child.type === 'ilst') parseIlst(child, keys);
+          else if (child.type === 'meta') pushRange(child.start, child.end, job.depth + 1, 'meta');
+          else if (containers.has(child.type)) pushRange(child.payload, child.end, job.depth + 1, 'range');
+        }
+        continue;
+      }
+
+      for (const atom of listAtoms(job.start, job.end)) {
+        if (atom.type === 'meta') pushRange(atom.start, atom.end, job.depth + 1, 'meta');
+        else if (atom.type === 'ilst') parseIlst(atom, []);
+        else if (atom.type === 'XMP_' || atom.type === 'xml ' || atom.type === 'uuid') {
+          if (atom.end - atom.payload > 32 * 1024 * 1024) continue;
+          const decoded = textDecoder.decode(bytes.slice(atom.payload, atom.end));
+          parseXmpText(decoded, out);
+          if (/prompt|workflow|parameters/i.test(decoded)) addMeta(out, atom.type.trim(), decoded);
+        } else if (containers.has(atom.type)) pushRange(atom.payload, atom.end, job.depth + 1, 'range');
+        else if (standardNames[atom.type]) {
+          for (const value of parseDataChildren(atom)) addMeta(out, standardNames[atom.type], value);
+        }
+      }
+    }
+
+    return out;
+  }
+
+  function readEbmlVint(bytes, offset) {
+    if (offset >= bytes.length) return null;
+    const first = bytes[offset];
+    let mask = 0x80, length = 1;
+    while (length <= 8 && !(first & mask)) { mask >>= 1; length++; }
+    if (length > 8 || offset + length > bytes.length) return null;
+    let value = first & (mask - 1);
+    for (let i = 1; i < length; i++) value = value * 256 + bytes[offset + i];
+    return { length, value };
+  }
+
+  function parseEbmlTags(buffer) {
+    const bytes = new Uint8Array(buffer);
+    const out = {};
+    for (let i = 0; i + 4 < bytes.length; i++) {
+      if (bytes[i] !== 0x45 || bytes[i + 1] !== 0xa3) continue; // TagName
+      const nameSize = readEbmlVint(bytes, i + 2);
+      if (!nameSize || nameSize.value > 65536) continue;
+      const nameStart = i + 2 + nameSize.length;
+      const nameEnd = nameStart + nameSize.value;
+      if (nameEnd > bytes.length) continue;
+      const name = textDecoder.decode(bytes.slice(nameStart, nameEnd)).trim();
+      const searchEnd = Math.min(bytes.length - 3, nameEnd + 65536);
+      for (let p = nameEnd; p < searchEnd; p++) {
+        if (bytes[p] === 0x44 && (bytes[p + 1] === 0x87 || bytes[p + 1] === 0x85)) {
+          const valueSize = readEbmlVint(bytes, p + 2);
+          if (!valueSize || valueSize.value > 32 * 1024 * 1024) break;
+          const valueStart = p + 2 + valueSize.length;
+          const valueEnd = valueStart + valueSize.value;
+          if (valueEnd <= bytes.length) addMeta(out, name || 'tag', textDecoder.decode(bytes.slice(valueStart, valueEnd)));
+          break;
+        }
+      }
+    }
+    return out;
+  }
+
+  function parseRiff(buffer) {
+    const bytes = new Uint8Array(buffer);
+    const dv = new DataView(buffer);
+    if (bytes.length < 12 || latinDecoder.decode(bytes.slice(0, 4)) !== 'RIFF') throw new Error(t('invalidRiff'));
+    const out = {};
+    const parseChunks = (start, end, prefix = '') => {
+      let p = start;
+      while (p + 8 <= end) {
+        const id = latinDecoder.decode(bytes.slice(p, p + 4));
+        const size = dv.getUint32(p + 4, true);
+        const dataStart = p + 8;
+        const dataEnd = Math.min(dataStart + size, end);
+        if (id === 'LIST' && dataStart + 4 <= dataEnd) {
+          const listType = latinDecoder.decode(bytes.slice(dataStart, dataStart + 4));
+          parseChunks(dataStart + 4, dataEnd, `${listType}.`);
+        } else if (['iXML','XMP ','ID3 ','exif','bext','ICMT','INAM','ISFT','IART','ICOP','IPRD','IGNR','ICRD','ISBJ','IKEY'].includes(id) || prefix.startsWith('INFO')) {
+          const text = textDecoder.decode(bytes.slice(dataStart, dataEnd)).replace(/\0+$/g, '').trim();
+          if (text) addMeta(out, `${prefix}${id}`.replace(/^INFO\./, ''), text);
+          if (id.trim() === 'XMP') parseXmpText(text, out);
+        }
+        p = dataStart + size + (size & 1);
+      }
+    };
+    parseChunks(12, bytes.length);
+    return out;
+  }
+
+  function decodeId3Text(bytes, encodingByte) {
+    if (!bytes.length) return '';
+    if (encodingByte === 0) return latinDecoder.decode(bytes).replace(/\0+$/g, '');
+    if (encodingByte === 3) return textDecoder.decode(bytes).replace(/\0+$/g, '');
+    if (encodingByte === 2) return decodeUtf16BE(bytes).replace(/\0+$/g, '');
+    if (bytes[0] === 0xfe && bytes[1] === 0xff) return decodeUtf16BE(bytes.slice(2)).replace(/\0+$/g, '');
+    if (bytes[0] === 0xff && bytes[1] === 0xfe) return new TextDecoder('utf-16le').decode(bytes.slice(2)).replace(/\0+$/g, '');
+    return new TextDecoder('utf-16le').decode(bytes).replace(/\0+$/g, '');
+  }
+
+  function synchsafe(bytes, offset) {
+    return ((bytes[offset] & 0x7f) << 21) | ((bytes[offset + 1] & 0x7f) << 14) | ((bytes[offset + 2] & 0x7f) << 7) | (bytes[offset + 3] & 0x7f);
+  }
+
+  function parseId3(buffer) {
+    const bytes = new Uint8Array(buffer);
+    const dv = new DataView(buffer);
+    const out = {};
+    if (latinDecoder.decode(bytes.slice(0, 3)) !== 'ID3') return out;
+    const version = bytes[3];
+    const end = Math.min(bytes.length, 10 + synchsafe(bytes, 6));
+    let p = 10;
+    while (p + (version === 2 ? 6 : 10) <= end) {
+      let id, size, header;
+      if (version === 2) {
+        id = latinDecoder.decode(bytes.slice(p, p + 3));
+        size = (bytes[p + 3] << 16) | (bytes[p + 4] << 8) | bytes[p + 5];
+        header = 6;
+      } else {
+        id = latinDecoder.decode(bytes.slice(p, p + 4));
+        size = version === 4 ? synchsafe(bytes, p + 4) : dv.getUint32(p + 4, false);
+        header = 10;
+      }
+      if (!id.replace(/\0/g, '') || size <= 0 || p + header + size > end) break;
+      const data = bytes.slice(p + header, p + header + size);
+      if (id[0] === 'T' && data.length) {
+        const encoding = data[0];
+        const text = decodeId3Text(data.slice(1), encoding);
+        if (id === 'TXXX') {
+          const parts = text.split('\0');
+          addMeta(out, parts.shift() || 'TXXX', parts.join('\0'));
+        } else addMeta(out, id, text);
+      } else if ((id === 'COMM' || id === 'COM') && data.length > 4) {
+        const encoding = data[0];
+        const text = decodeId3Text(data.slice(4), encoding);
+        const parts = text.split('\0');
+        addMeta(out, parts.shift() || 'comment', parts.join('\0') || text);
+      } else if (id === 'USLT' && data.length > 4) addMeta(out, 'lyrics', decodeId3Text(data.slice(4), data[0]));
+      p += header + size;
+    }
+    return out;
+  }
+
+  function parseVorbisComments(bytes, start, out) {
+    if (start + 8 > bytes.length) return;
+    const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    let p = start;
+    const vendorLen = dv.getUint32(p, true); p += 4 + vendorLen;
+    if (p + 4 > bytes.length) return;
+    const count = dv.getUint32(p, true); p += 4;
+    for (let i = 0; i < count && p + 4 <= bytes.length; i++) {
+      const len = dv.getUint32(p, true); p += 4;
+      if (len > 32 * 1024 * 1024 || p + len > bytes.length) break;
+      const entry = textDecoder.decode(bytes.slice(p, p + len)); p += len;
+      const eq = entry.indexOf('=');
+      addMeta(out, eq > 0 ? entry.slice(0, eq) : `comment_${i + 1}`, eq > 0 ? entry.slice(eq + 1) : entry);
+    }
+  }
+
+  function parseFlac(buffer) {
+    const bytes = new Uint8Array(buffer);
+    if (latinDecoder.decode(bytes.slice(0, 4)) !== 'fLaC') throw new Error(t('invalidFlac'));
+    const out = {};
+    let p = 4;
+    while (p + 4 <= bytes.length) {
+      const last = !!(bytes[p] & 0x80);
+      const type = bytes[p] & 0x7f;
+      const len = (bytes[p + 1] << 16) | (bytes[p + 2] << 8) | bytes[p + 3];
+      const start = p + 4, end = Math.min(start + len, bytes.length);
+      if (type === 4) parseVorbisComments(bytes.slice(start, end), 0, out);
+      else if (type === 2) addMeta(out, 'application', textDecoder.decode(bytes.slice(start, end)));
+      p = end;
+      if (last) break;
+    }
+    return out;
+  }
+
+  function parseOgg(buffer) {
+    const bytes = new Uint8Array(buffer);
+    const out = {};
+    const signatures = [
+      { sig: 'OpusTags', skip: 8 },
+      { sig: '\x03vorbis', skip: 7 },
+    ];
+    const latin = latinDecoder.decode(bytes);
+    for (const {sig, skip} of signatures) {
+      const idx = latin.indexOf(sig);
+      if (idx >= 0) parseVorbisComments(bytes, idx + skip, out);
+    }
+    return out;
+  }
+
+  function parseSafetensors(buffer) {
+    const bytes = new Uint8Array(buffer);
+    if (bytes.length < 8) return {};
+    const dv = new DataView(buffer);
+    const low = dv.getUint32(0, true);
+    const high = dv.getUint32(4, true);
+    const len = high * 4294967296 + low;
+    if (!Number.isFinite(len) || len <= 1 || len > bytes.length - 8 || len > 128 * 1024 * 1024) return {};
+    const header = JSON.parse(textDecoder.decode(bytes.slice(8, 8 + len)));
+    const out = {};
+    if (header.__metadata__ && typeof header.__metadata__ === 'object') mergeMeta(out, header.__metadata__);
+    addMeta(out, 'safetensors_header', header);
+    return out;
+  }
+
+  function parsePdf(buffer) {
+    const bytes = new Uint8Array(buffer);
+    const out = {};
+    const text = latinDecoder.decode(bytes);
+    const xmpStart = text.indexOf('<x:xmpmeta');
+    if (xmpStart >= 0) {
+      const xmpEnd = text.indexOf('</x:xmpmeta>', xmpStart);
+      parseXmpText(text.slice(xmpStart, xmpEnd >= 0 ? xmpEnd + 12 : xmpStart + 2_000_000), out);
+    }
+    for (const key of ['Title','Subject','Keywords','Creator','Producer','Author']) {
+      const re = new RegExp(`\\/${key}\\s*\\(([^)]{0,200000})\\)`, 'i');
+      const match = text.match(re);
+      if (match) addMeta(out, key, match[1].replace(/\\([()\\])/g, '$1'));
+    }
+    return out;
+  }
+
+  function extractBalanced(text, start) {
+    const opener = text[start];
+    const closer = opener === '{' ? '}' : opener === '[' ? ']' : null;
+    if (!closer) return null;
+    let depth = 0, quoted = false, escaped = false;
+    for (let i = start; i < text.length; i++) {
+      const c = text[i];
+      if (quoted) {
+        if (escaped) escaped = false;
+        else if (c === '\\') escaped = true;
+        else if (c === '"') quoted = false;
+        continue;
+      }
+      if (c === '"') quoted = true;
+      else if (c === opener) depth++;
+      else if (c === closer && --depth === 0) return text.slice(start, i + 1);
+    }
+    return null;
+  }
+
+  function findJsonAround(text, markerIndex, maxBack = 262144) {
+    const from = Math.max(0, markerIndex - maxBack);
+    const starts = [];
+    let cursorObject = markerIndex;
+    let cursorArray = markerIndex;
+
+    for (let attempts = 0; attempts < 48; attempts++) {
+      cursorObject = text.lastIndexOf('{', cursorObject - 1);
+      if (cursorObject < from) break;
+      starts.push(cursorObject);
+    }
+    for (let attempts = 0; attempts < 48; attempts++) {
+      cursorArray = text.lastIndexOf('[', cursorArray - 1);
+      if (cursorArray < from) break;
+      starts.push(cursorArray);
+    }
+
+    starts.sort((a, b) => b - a);
+    for (const start of starts) {
+      const candidate = extractBalanced(text, start);
+      if (candidate && candidate.length > 20 && markerIndex < start + candidate.length) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
+  function genericBinaryScan(buffer) {
+    const bytes = new Uint8Array(buffer);
+    const out = {};
+    const max = 4 * 1024 * 1024;
+    const half = Math.floor(max / 2);
+    const parts = bytes.length <= max
+      ? [bytes]
+      : [bytes.slice(0, half), bytes.slice(bytes.length - half)];
+
+    for (const part of parts) {
+      const texts = [textDecoder.decode(part).replace(/\0/g, '\n')];
+      const latin = latinDecoder.decode(part).replace(/\0/g, '\n');
+      if (latin !== texts[0]) texts.push(latin);
+
+      for (const text of texts) {
+        const markerRe = /(?:^|[\s"'<>\[{,;])((?:positive[_ .-]?)?prompt|negative[_ .-]?prompt|workflow|parameters|generation[_ .-]?(?:data|info)|extra[_ .-]?metadata|seed|steps|cfg(?:[_ .-]?scale)?|guidance|sampler(?:[_ .-]?name)?|scheduler|model(?:[_ .-]?name)?|lora(?:[_ .-]?name)?)\s*(?:[:=]|\n)\s*/gim;
+        let match;
+        let markerCount = 0;
+
+        while (markerCount++ < 256 && (match = markerRe.exec(text))) {
+          const key = match[1];
+          let p = match.index + match[0].length;
+          while (p < text.length && /[\s"']/.test(text[p])) p++;
+
+          let value = '';
+          if (text[p] === '{' || text[p] === '[') {
+            value = extractBalanced(text, p) || '';
+          }
+          if (!value) {
+            const end = Math.min(text.length, p + 262144);
+            const newline = text.indexOf('\n', p);
+            const stop = newline >= 0 && newline < end ? newline : end;
+            value = text.slice(p, stop).replace(/["',;]+$/g, '').trim();
+          }
+          if (value) addMeta(out, key, value);
+          if (match[0].length === 0) markerRe.lastIndex++;
+        }
+
+        for (const marker of ['"class_type"', '"nodes"', '"workflow"', '"prompt"']) {
+          let index = text.indexOf(marker);
+          let attempts = 0;
+          while (index >= 0 && attempts++ < 4) {
+            const candidate = findJsonAround(text, index);
+            if (candidate && candidate.length <= 2 * 1024 * 1024) {
+              try {
+                const obj = JSON.parse(candidate);
+                if (obj && typeof obj === 'object') {
+                  if (Array.isArray(obj.nodes)) addMeta(out, 'workflow', obj);
+                  else if (
+                    !Array.isArray(obj) &&
+                    Object.values(obj).some(v => v && typeof v === 'object' && v.class_type)
+                  ) {
+                    addMeta(out, 'prompt', obj);
+                  }
+                }
+              } catch (_) {}
+            }
+            index = text.indexOf(marker, index + marker.length);
+          }
+        }
+
+        const stepsIndex = text.lastIndexOf('\nSteps:');
+        if (stepsIndex >= 0) {
+          const start = Math.max(0, text.lastIndexOf('\n\n', stepsIndex - 1));
+          addMeta(out, 'parameters', text.slice(start, Math.min(text.length, stepsIndex + 10000)).trim());
+        }
+      }
+    }
+    return out;
+  }
+
+  function detectFormat(buffer, file) {
+    const bytes = new Uint8Array(buffer);
+    const ascii = latinDecoder.decode(bytes.slice(0, 32));
+    const name = file.name.toLowerCase();
+    if (bytes.length >= 8 && new DataView(buffer).getUint32(0) === 0x89504e47) return 'PNG';
+    if (bytes[0] === 0xff && bytes[1] === 0xd8) return 'JPEG';
+    if (/^GIF8[79]a/.test(ascii)) return 'GIF';
+    if (ascii.startsWith('RIFF') && ascii.slice(8, 12) === 'WEBP') return 'WebP';
+    if (ascii.startsWith('RIFF')) return ascii.slice(8, 12).trim() || 'RIFF';
+    if (ascii.startsWith('fLaC')) return 'FLAC';
+    if (ascii.startsWith('OggS')) return 'Ogg/Opus';
+    if (ascii.startsWith('ID3') || name.endsWith('.mp3')) return 'MP3/ID3';
+    if (bytes[0] === 0x1a && bytes[1] === 0x45 && bytes[2] === 0xdf && bytes[3] === 0xa3) return 'WebM/MKV';
+    if (ascii.slice(4, 8) === 'ftyp') return `ISO-BMFF (${ascii.slice(8, 12).replace(/\0/g, '').trim() || 'MP4/MOV'})`;
+    if ((ascii.startsWith('II*\0') || ascii.startsWith('MM\0*'))) return 'TIFF';
+    if (ascii.startsWith('%PDF')) return 'PDF';
+    if (/^\s*[\[{]/.test(textDecoder.decode(bytes.slice(0, 1024)))) return 'JSON/текст';
+    if (name.endsWith('.safetensors')) return 'safetensors';
+    if (/\.(svg|xml)$/i.test(name)) return 'SVG/XML';
+    if (/\.(txt|yaml|yml|toml|csv|log|html|md)$/i.test(name)) return 'Текст';
+    return file.type || name.split('.').pop()?.toUpperCase() || 'Неизвестный формат';
+  }
+
+  async function readMetadataBuffers(file) {
+    const name = file.name.toLowerCase();
+    const streamedMedia = /^(video|audio)\//i.test(file.type || '') ||
+      /\.(mp4|m4v|mov|3gp|3g2|webm|mkv|avi|wav|mp3|m4a|aac|flac|ogg|opus)$/i.test(name);
+
+    // Video payload is mostly compressed frame data and is useless for metadata extraction.
+    // Always keep browser memory bounded and inspect container headers/tails only.
+    const fullLimit = streamedMedia ? 24 * 1024 * 1024 : 128 * 1024 * 1024;
+    const side = streamedMedia ? 16 * 1024 * 1024 : 32 * 1024 * 1024;
+    if (file.size <= fullLimit) {
+      return [{label: t('wholeFile'), offset: 0, isFull: true, buffer: await file.arrayBuffer()}];
+    }
+    const tailOffset = Math.max(0, file.size - side);
+    return [
+      {label: t('fileStart'), offset: 0, isFull: false, buffer: await file.slice(0, side).arrayBuffer()},
+      {label: t('fileEnd'), offset: tailOffset, isFull: false, buffer: await file.slice(tailOffset).arrayBuffer()},
+    ];
+  }
+
+  function parseByDetectedFormat(buffer, detected, file, options = {}) {
+    const out = {};
+    const name = file.name.toLowerCase();
+    try {
+      if (detected === 'PNG') mergeMeta(out, parsePng(buffer));
+      else if (detected === 'JPEG') mergeMeta(out, parseJpeg(buffer));
+      else if (detected === 'GIF') mergeMeta(out, parseGif(buffer));
+      else if (detected === 'WebP') mergeMeta(out, parseWebp(buffer));
+      else if (detected === 'TIFF') mergeMeta(out, parseTiffExif(new Uint8Array(buffer)));
+      else if (/ISO-BMFF/.test(detected)) mergeMeta(out, parseIsoBmff(buffer, !!options.fragmentMode));
+      else if (detected === 'WebM/MKV') mergeMeta(out, parseEbmlTags(buffer));
+      else if (['WAVE','AVI ','AVI','RIFF'].includes(detected)) mergeMeta(out, parseRiff(buffer));
+      else if (detected === 'MP3/ID3') mergeMeta(out, parseId3(buffer));
+      else if (detected === 'FLAC') mergeMeta(out, parseFlac(buffer));
+      else if (detected === 'Ogg/Opus') mergeMeta(out, parseOgg(buffer));
+      else if (detected === 'PDF') mergeMeta(out, parsePdf(buffer));
+      else if (detected === 'safetensors') mergeMeta(out, parseSafetensors(buffer));
+      else if (detected === 'SVG/XML') parseXmpText(textDecoder.decode(new Uint8Array(buffer)), out);
+      else if (detected === 'Текст' || detected === 'JSON/текст') addMeta(out, 'text', textDecoder.decode(new Uint8Array(buffer)));
+    } catch (error) {
+      addMeta(out, '_parser_warning', `${detected}: ${error.message || error}`);
+    }
+    const generationKey = Object.keys(out).some(key =>
+      /prompt|workflow|parameter|generation|metadata|seed|steps?|cfg|guidance|sampler|scheduler|model|lora/i.test(key)
+    );
+    if (!generationKey) mergeMeta(out, genericBinaryScan(buffer));
+    return out;
+  }
+
+  function parseA1111(parameters) {
+    if (typeof parameters !== 'string') return null;
+    const stepIndex = parameters.lastIndexOf('\nSteps:');
+    if (stepIndex < 0) return null;
+    const negIndex = parameters.lastIndexOf('\nNegative prompt:', stepIndex);
+    const positive = parameters.slice(0, negIndex > -1 ? negIndex : stepIndex).trim();
+    const negative = negIndex > -1 ? parameters.slice(negIndex + 18, stepIndex).trim() : '';
+    const settingsLine = parameters.slice(stepIndex + 1).trim();
+    const settings = {};
+    const re = /\s*([^:,]+):\s*("(?:\\.|[^"])*"|\{.*?\}|[^,]*)(?:,|$)/g;
+    let m;
+    while ((m = re.exec(settingsLine))) settings[m[1].trim()] = m[2].trim().replace(/^"|"$/g, '');
+    return { positive: [positive], negative: [negative], settings, models: [], loras: [], samplers: [], dimensions: [] };
+  }
+
+  const uniq = (arr) => [...new Set(arr.filter(v => v !== undefined && v !== null && String(v).trim() !== '').map(v => String(v).trim()))];
+  const isLink = (v) => Array.isArray(v) && v.length >= 2 && (typeof v[0] === 'string' || typeof v[0] === 'number');
+
+  function extractFromPrompt(prompt) {
+    if (!prompt || typeof prompt !== 'object' || Array.isArray(prompt)) return emptyExtract();
+    const nodes = prompt;
+    const positive = [];
+    const negative = [];
+    const allText = [];
+    const settings = {};
+    const models = [];
+    const loras = [];
+    const samplers = [];
+    const dimensions = [];
+    const nodeRows = [];
+
+    const nodeById = (id) => nodes[String(id)] || nodes[id];
+    const titleOf = (node, id) => node?._meta?.title || node?.class_type || `Node ${id}`;
+
+    // Определяем, к какой ветке относится вход. Это важно для узлов,
+    // в которых одновременно проходят positive и negative conditioning.
+    const keyPolarity = (key) => {
+      const k = String(key || '').toLowerCase();
+      if (/negative|uncond|(^|[^a-z])neg([^a-z]|$)/i.test(k)) return 'negative';
+      if (/positive|(^|[^a-z])pos([^a-z]|$)/i.test(k)) return 'positive';
+      return '';
+    };
+
+    const isPromptValueKey = (key) => /^(text|prompt|caption|value|text_g|text_l|positive|negative|positive_prompt|negative_prompt)$/i.test(String(key));
+
+    const collectText = (ref, branch) => {
+      const found = [];
+      const stack = [ref];
+      const seen = new Set();
+      let iterations = 0;
+
+      while (stack.length && iterations++ < 20000) {
+        const current = stack.pop();
+        if (typeof current === 'string') {
+          if (current.trim()) found.push(current);
+          continue;
+        }
+        if (!isLink(current)) continue;
+
+        const id = String(current[0]);
+        const outputSlot = Number(current[1] ?? 0);
+        const visitKey = `${id}:${outputSlot}:${branch}`;
+        if (seen.has(visitKey)) continue;
+        seen.add(visitKey);
+
+        const node = nodeById(id);
+        if (!node) continue;
+        const type = String(node.class_type || '');
+        const inputs = node.inputs || {};
+        const promptish = /text|prompt|string|caption|encode|wildcard/i.test(type);
+
+        for (const [key, value] of Object.entries(inputs)) {
+          const polarity = keyPolarity(key);
+          if (polarity && polarity !== branch) continue;
+
+          if (typeof value === 'string') {
+            if ((promptish || isPromptValueKey(key)) && value.trim()) found.push(value);
+          } else if (isLink(value)) {
+            stack.push(value);
+          } else if (Array.isArray(value)) {
+            for (let i = value.length - 1; i >= 0; i--) {
+              if (isLink(value[i])) stack.push(value[i]);
+            }
+          }
+        }
+      }
+      return uniq(found);
+    };
+
+    const collectUpstream = (ref) => {
+      const result = [];
+      const stack = [ref];
+      const seen = new Set();
+      let iterations = 0;
+
+      while (stack.length && iterations++ < 20000) {
+        const current = stack.pop();
+        if (!isLink(current)) continue;
+        const id = String(current[0]);
+        if (seen.has(id)) continue;
+        seen.add(id);
+
+        const node = nodeById(id);
+        if (!node) continue;
+        result.push({id, node});
+
+        for (const value of Object.values(node.inputs || {})) {
+          if (isLink(value)) stack.push(value);
+          else if (Array.isArray(value)) {
+            for (let i = value.length - 1; i >= 0; i--) {
+              if (isLink(value[i])) stack.push(value[i]);
+            }
+          }
+        }
+      }
+      return result;
+    };
+
+    const settingKeys = ['seed','noise_seed','steps','cfg','cfg_scale','sampler_name','sampler','scheduler','denoise','start_at_step','end_at_step','add_noise','return_with_leftover_noise','shift','guidance','flux_guidance','width','height','batch_size','length','num_frames','fps'];
+    const modelKeys = ['ckpt_name','unet_name','model_name','diffusion_model','clip_name','clip_name1','clip_name2','vae_name','control_net_name','ipadapter_file'];
+
+    for (const [id, node] of Object.entries(nodes)) {
+      if (!node || typeof node !== 'object') continue;
+      const type = String(node.class_type || 'Unknown');
+      const input = node.inputs || {};
+      nodeRows.push({ id, type, title: titleOf(node, id) });
+
+      for (const key of settingKeys) {
+        const val = input[key];
+        if (val !== undefined && !isLink(val) && typeof val !== 'object') {
+          if (settings[key] === undefined) settings[key] = val;
+          else if (settings[key] !== val) settings[`${key} (${titleOf(node,id)})`] = val;
+        }
+      }
+      for (const key of modelKeys) {
+        const val = input[key];
+        if (typeof val === 'string' && val.trim()) models.push(`${key}: ${val}`);
+      }
+      if (/lora/i.test(type) && typeof input.lora_name === 'string') {
+        const strengths = [input.strength_model, input.strength_clip].filter(v => v !== undefined).join(' / ');
+        loras.push(`${input.lora_name}${strengths ? ` — ${strengths}` : ''}`);
+      }
+      if (/empty.*(latent|image)|latent.*size/i.test(type) || ('width' in input && 'height' in input)) {
+        if (!isLink(input.width) && !isLink(input.height)) dimensions.push(`${input.width || '?'} × ${input.height || '?'}${input.batch_size ? `, batch ${input.batch_size}` : ''}`);
+      }
+
+      if (/KSampler|SamplerCustom|SamplerAdvanced|CFGGuider|BasicGuider|DualCFGGuider/i.test(type)) {
+        const samplerInfo = { node: titleOf(node,id), type };
+        for (const key of settingKeys) if (input[key] !== undefined && !isLink(input[key])) samplerInfo[key] = input[key];
+
+        // Явные стандартные входы ComfyUI.
+        if (input.positive !== undefined) positive.push(...collectText(input.positive, 'positive'));
+        if (input.negative !== undefined) negative.push(...collectText(input.negative, 'negative'));
+        if (input.cond !== undefined && /BasicGuider/i.test(type)) positive.push(...collectText(input.cond, 'positive'));
+        if (input.positive_cond !== undefined) positive.push(...collectText(input.positive_cond, 'positive'));
+        if (input.negative_cond !== undefined) negative.push(...collectText(input.negative_cond, 'negative'));
+
+        // Поддержка кастомных sampler/guider-узлов с нестандартными именами входов.
+        for (const [key, val] of Object.entries(input)) {
+          if (!isLink(val)) continue;
+          const polarity = keyPolarity(key);
+          if (polarity === 'positive') positive.push(...collectText(val, 'positive'));
+          if (polarity === 'negative') negative.push(...collectText(val, 'negative'));
+        }
+
+        const upstream = Object.values(input).flatMap(v => collectUpstream(v));
+        for (const {node: up} of upstream) {
+          const ui = up.inputs || {};
+          for (const key of settingKeys) if (ui[key] !== undefined && !isLink(ui[key]) && samplerInfo[key] === undefined) samplerInfo[key] = ui[key];
+        }
+        samplers.push(samplerInfo);
+      }
+
+      if (/text|prompt|caption|wildcard/i.test(type)) {
+        for (const [key, val] of Object.entries(input)) {
+          if (typeof val === 'string' && /text|prompt|caption|value|positive|negative/i.test(key) && val.trim()) allText.push(val);
+        }
+      }
+    }
+
+    if (!positive.length && !negative.length) positive.push(...allText);
+    return { positive: uniq(positive), negative: uniq(negative), settings, models: uniq(models), loras: uniq(loras), samplers, dimensions: uniq(dimensions), nodeRows };
+  }
+
+  function emptyExtract() {
+    return { positive: [], negative: [], settings: {}, models: [], loras: [], samplers: [], dimensions: [], nodeRows: [] };
+  }
+
+  function extractFromWorkflowGraph(workflow) {
+    const out = emptyExtract();
+    if (!workflow || !Array.isArray(workflow.nodes)) return out;
+
+    const nodeMap = new Map(workflow.nodes.map(node => [String(node.id), node]));
+    const linkMap = new Map();
+    for (const link of Array.isArray(workflow.links) ? workflow.links : []) {
+      if (!Array.isArray(link) || link.length < 5) continue;
+      linkMap.set(String(link[0]), { nodeId: String(link[1]), slot: Number(link[2] ?? 0) });
+    }
+
+    const keyPolarity = (key) => {
+      const k = String(key || '').toLowerCase();
+      if (/negative|uncond|(^|[^a-z])neg([^a-z]|$)/i.test(k)) return 'negative';
+      if (/positive|(^|[^a-z])pos([^a-z]|$)/i.test(k)) return 'positive';
+      return '';
+    };
+
+    const inputRef = (input) => {
+      if (!input || input.link === null || input.link === undefined) return null;
+      return linkMap.get(String(input.link)) || null;
+    };
+
+    const promptStrings = (node) => {
+      const type = String(node?.type || '');
+      if (!/text|prompt|string|caption|encode|wildcard/i.test(type)) return [];
+      const values = Array.isArray(node.widgets_values) ? node.widgets_values : [];
+      return values.filter(v => typeof v === 'string' && v.trim().length > 1 && !/^(fixed|randomize|increment|decrement)$/i.test(v.trim()));
+    };
+
+    const collectWorkflowText = (ref, branch) => {
+      const found = [];
+      const stack = [ref];
+      const seen = new Set();
+      let iterations = 0;
+
+      while (stack.length && iterations++ < 20000) {
+        const current = stack.pop();
+        if (!current) continue;
+
+        const visitKey = `${current.nodeId}:${current.slot}:${branch}`;
+        if (seen.has(visitKey)) continue;
+        seen.add(visitKey);
+
+        const node = nodeMap.get(String(current.nodeId));
+        if (!node) continue;
+        found.push(...promptStrings(node));
+
+        for (const input of Array.isArray(node.inputs) ? node.inputs : []) {
+          const polarity = keyPolarity(input?.name);
+          if (polarity && polarity !== branch) continue;
+          const upstream = inputRef(input);
+          if (upstream) stack.push(upstream);
+        }
+      }
+      return uniq(found);
+    };
+
+    const unassignedText = [];
+
+    for (const node of workflow.nodes) {
+      const type = String(node.type || 'Unknown');
+      const values = Array.isArray(node.widgets_values) ? node.widgets_values : [];
+      out.nodeRows.push({id: node.id, type, title: node.title || type});
+
+      const ownPrompts = promptStrings(node);
+      if (ownPrompts.length) {
+        const label = `${node.title || ''} ${type}`;
+        if (/negative|uncond|\bneg\b/i.test(label)) out.negative.push(...ownPrompts);
+        else if (/positive|\bpos\b/i.test(label)) out.positive.push(...ownPrompts);
+        else unassignedText.push(...ownPrompts);
+      }
+
+      if (/CheckpointLoader/i.test(type) && typeof values[0] === 'string') out.models.push(`ckpt_name: ${values[0]}`);
+      if (/UNETLoader|DiffusionModel/i.test(type) && typeof values[0] === 'string') out.models.push(`unet_name: ${values[0]}`);
+      if (/VAELoader/i.test(type) && typeof values[0] === 'string') out.models.push(`vae_name: ${values[0]}`);
+      if (/LoraLoader/i.test(type) && typeof values[0] === 'string') {
+        const rawLora = values[0].trim();
+        const parsedStack = safeJsonParse(rawLora);
+        if (Array.isArray(parsedStack)) {
+          for (const entry of parsedStack) {
+            if (!entry || entry.on === false) continue;
+            const name = String(entry.lora ?? entry.name ?? '').trim();
+            if (!name || /^none$/i.test(name)) continue;
+            const weights = [entry.str ?? entry.strength, entry.vs, entry.as]
+              .filter(value => value !== undefined && value !== null)
+              .join(' / ');
+            out.loras.push(`${name}${weights ? ` — ${weights}` : ''}`);
+          }
+        } else if (rawLora && !/^none$/i.test(rawLora) && !/^[\[{]/.test(rawLora)) {
+          out.loras.push(`${rawLora}${values.length > 2 ? ` — ${values[1]} / ${values[2]}` : ''}`);
+        }
+      }
+
+      if (/KSampler|SamplerCustom|SamplerAdvanced|CFGGuider|BasicGuider|DualCFGGuider/i.test(type)) {
+        const inputs = Array.isArray(node.inputs) ? node.inputs : [];
+        for (const input of inputs) {
+          const name = String(input?.name || '');
+          const ref = inputRef(input);
+          if (!ref) continue;
+          const polarity = keyPolarity(name);
+          if (polarity === 'positive') out.positive.push(...collectWorkflowText(ref, 'positive'));
+          if (polarity === 'negative') out.negative.push(...collectWorkflowText(ref, 'negative'));
+          if (/^cond$/i.test(name) && /BasicGuider/i.test(type)) out.positive.push(...collectWorkflowText(ref, 'positive'));
+        }
+
+        const nums = values.filter(v => typeof v === 'number');
+        const strs = values.filter(v => typeof v === 'string' && !/randomize|fixed|increment|decrement/i.test(v));
+        if (/KSampler/i.test(type)) {
+          if (nums[0] !== undefined) out.settings.seed = nums[0];
+          if (nums[1] !== undefined) out.settings.steps = nums[1];
+          if (nums[2] !== undefined) out.settings.cfg = nums[2];
+          if (nums[3] !== undefined) out.settings.denoise = nums[3];
+          if (strs[0]) out.settings.sampler_name = strs[0];
+          if (strs[1]) out.settings.scheduler = strs[1];
+        }
+      }
+
+      if (/EmptyLatentImage|EmptyImage/i.test(type)) {
+        const nums = values.filter(v => typeof v === 'number');
+        if (nums.length >= 2) out.dimensions.push(`${nums[0]} × ${nums[1]}${nums[2] ? `, batch ${nums[2]}` : ''}`);
+      }
+      if (/RandomNoise/i.test(type)) {
+        const seed = values.find(v => typeof v === 'number');
+        if (seed !== undefined) out.settings.noise_seed = seed;
+      }
+      if (/BasicScheduler/i.test(type)) {
+        const nums = values.filter(v => typeof v === 'number');
+        const strs = values.filter(v => typeof v === 'string');
+        if (strs[0]) out.settings.scheduler = strs[0];
+        if (nums[0] !== undefined) out.settings.steps = nums[0];
+        if (nums[1] !== undefined) out.settings.denoise = nums[1];
+      }
+    }
+
+    // Если workflow не содержит связей, нейтральные текстовые узлы считаем positive,
+    // но никогда не копируем их одновременно в обе колонки.
+    if (!out.positive.length && !out.negative.length) out.positive.push(...unassignedText);
+
+    out.positive = uniq(out.positive);
+    out.negative = uniq(out.negative);
+    out.models = uniq(out.models);
+    out.loras = uniq(out.loras);
+    out.dimensions = uniq(out.dimensions);
+    return out;
+  }
+
+
+  function appendExtract(target, source) {
+    target.positive = uniq([...target.positive, ...source.positive]);
+    target.negative = uniq([...target.negative, ...source.negative]);
+    target.settings = {...target.settings, ...source.settings};
+    target.models = uniq([...target.models, ...source.models]);
+    target.loras = uniq([...target.loras, ...source.loras]);
+    target.samplers.push(...source.samplers);
+    target.dimensions = uniq([...target.dimensions, ...source.dimensions]);
+    target.nodeRows.push(...source.nodeRows);
+    return target;
+  }
+
+  function extractFromWorkflow(workflow) {
+    const combined = emptyExtract();
+    if (!workflow || typeof workflow !== 'object') return combined;
+
+    const queue = [workflow];
+    const seen = new WeakSet();
+    let graphBudget = 256;
+
+    while (queue.length && graphBudget-- > 0) {
+      const graph = queue.shift();
+      if (!graph || typeof graph !== 'object' || seen.has(graph)) continue;
+      seen.add(graph);
+
+      if (Array.isArray(graph.nodes)) {
+        appendExtract(combined, extractFromWorkflowGraph(graph));
+      }
+
+      const subgraphs = graph.definitions?.subgraphs;
+      if (Array.isArray(subgraphs)) queue.push(...subgraphs);
+
+      if (Array.isArray(graph.subgraphs)) queue.push(...graph.subgraphs);
+      if (Array.isArray(graph.definitions)) queue.push(...graph.definitions);
+    }
+
+    combined.positive = uniq(combined.positive);
+    combined.negative = uniq(combined.negative);
+    combined.models = uniq(combined.models);
+    combined.loras = uniq(combined.loras);
+    combined.dimensions = uniq(combined.dimensions);
+    combined.nodeRows = combined.nodeRows.filter((row, index, rows) =>
+      rows.findIndex(other => String(other.id) === String(row.id) && other.type === row.type) === index
+    );
+    return combined;
+  }
+
+  function mergeExtract(primary, fallback) {
+    const merged = emptyExtract();
+    merged.positive = primary.positive.length ? primary.positive : fallback.positive;
+    merged.negative = primary.negative.length ? primary.negative : fallback.negative;
+    merged.settings = {...fallback.settings, ...primary.settings};
+    merged.models = uniq([...primary.models, ...fallback.models]);
+    merged.loras = uniq([...primary.loras, ...fallback.loras]);
+    merged.samplers = primary.samplers.length ? primary.samplers : fallback.samplers;
+    merged.dimensions = uniq([...primary.dimensions, ...fallback.dimensions]);
+    merged.nodeRows = primary.nodeRows.length ? primary.nodeRows : fallback.nodeRows;
+    return merged;
+  }
+
+  function normalizeMetadata(metadata) {
+    const normalized = {};
+    for (const [key, value] of Object.entries(metadata || {})) normalized[cleanKey(key)] = safeJsonParse(value);
+
+    // Canonical aliases used by ComfyUI/Civitai and by FFmpeg mdta keys.
+    for (const [key, value] of Object.entries({...normalized})) {
+      const compact = key.toLowerCase().replace(/[^a-zа-я0-9]+/g, '_').replace(/^_|_$/g, '');
+      if (!normalized.prompt && ['prompt','api_prompt','comfy_prompt'].includes(compact)) normalized.prompt = value;
+      if (!normalized.workflow && ['workflow','comfy_workflow','workflow_json'].includes(compact)) normalized.workflow = value;
+      if (!normalized.parameters && ['parameters','generation_data','generation_info','generation_parameters'].includes(compact)) normalized.parameters = value;
+      if (!normalized.extraMetadata && ['extra_metadata','extrametadata'].includes(compact)) normalized.extraMetadata = value;
+    }
+    return normalized;
+  }
+
+  function extractFromFlatMetadata(metadata) {
+    const out = emptyExtract();
+    const flat = [];
+    const stack = [{value: metadata, path: '', depth: 0}];
+    const seenObjects = new WeakSet();
+    let budget = 200000;
+    while (stack.length && budget-- > 0) {
+      const {value, path, depth} = stack.pop();
+      if (depth > 7 || value == null) continue;
+      if (typeof value !== 'object') {
+        flat.push([path, value]);
+        continue;
+      }
+      if (seenObjects.has(value)) continue;
+      seenObjects.add(value);
+      const entries = Array.isArray(value)
+        ? value.map((v, i) => [String(i), v])
+        : Object.entries(value);
+      for (let i = entries.length - 1; i >= 0; i--) {
+        const [key, child] = entries[i];
+        stack.push({value: child, path: path ? `${path}.${key}` : key, depth: depth + 1});
+      }
+    }
+
+    const settingMap = {
+      seed: 'seed', noise_seed: 'noise_seed', steps: 'steps', step: 'steps', cfg: 'cfg', cfg_scale: 'cfg_scale',
+      guidance: 'guidance', flux_guidance: 'flux_guidance', sampler: 'sampler', sampler_name: 'sampler_name',
+      scheduler: 'scheduler', denoise: 'denoise', width: 'width', height: 'height', fps: 'fps', num_frames: 'num_frames'
+    };
+
+    for (const [path, raw] of flat) {
+      const key = String(path).split('.').pop().toLowerCase().replace(/[^a-zа-я0-9]+/g, '_').replace(/^_|_$/g, '');
+      const value = typeof raw === 'string' ? raw.trim() : raw;
+      if (value === '' || value == null) continue;
+      if (/^(negative_prompt|negative|neg_prompt|uc)$/.test(key)) out.negative.push(String(value));
+      else if (/^(positive_prompt|positive|prompt_text|caption)$/.test(key)) out.positive.push(String(value));
+      else if (key === 'prompt' && typeof value === 'string' && !/^[\[{]/.test(value)) out.positive.push(value);
+      if (settingMap[key] && out.settings[settingMap[key]] === undefined) out.settings[settingMap[key]] = value;
+      if (/^(model|model_name|ckpt_name|checkpoint|unet_name|diffusion_model)$/.test(key)) out.models.push(`${key}: ${value}`);
+      if (/lora/.test(key) && /name|model|file|lora$/.test(key)) out.loras.push(String(value));
+    }
+
+    out.positive = uniq(out.positive);
+    out.negative = uniq(out.negative);
+    out.models = uniq(out.models);
+    out.loras = uniq(out.loras);
+    return out;
+  }
+
+  function valueText(value, limit = 24000) {
+    const text = typeof value === 'object' ? safeJsonStringify(value) : String(value ?? '');
+    if (text.length <= limit) return text;
+    return `${text.slice(0, limit)}\n${t('hiddenText', {size: formatBytes(text.length - limit)})}`;
+  }
+
+  function searchText(value) {
+    return String(value ?? '').toLocaleLowerCase(localeTag());
+  }
+
+  function makeSummaryItem(label, value) {
+    const el = document.createElement('div');
+    el.className = 'summary-item searchable';
+    el.dataset.search = searchText(`${label} ${value}`);
+    const labelEl = document.createElement('div');
+    labelEl.className = 'summary-label';
+    labelEl.textContent = label;
+    const valueEl = document.createElement('div');
+    valueEl.className = 'summary-value';
+    valueEl.textContent = String(value);
+    el.append(labelEl, valueEl);
+    return el;
+  }
+
+  function objectTable(obj) {
+    const entries = Object.entries(obj || {});
+    if (!entries.length) return `<div class="empty">${escapeHtml(t('empty'))}</div>`;
+    const rows = entries.map(([key, value]) => {
+      const shown = valueText(value, 16000);
+      return `<tr class="searchable" data-search="${escapeHtml(searchText(`${key} ${shown}`))}"><th>${escapeHtml(key)}</th><td>${escapeHtml(shown)}</td></tr>`;
+    }).join('');
+    return `<div class="details-content"><table class="data-table">${rows}</table></div>`;
+  }
+
+  function resourceList(items) {
+    if (!items.length) return `<div class="details-content"><div class="empty">${escapeHtml(t('empty'))}</div></div>`;
+    return `<div class="details-content"><div class="resource-list">${items.map(item => `<div class="resource-row searchable" data-search="${escapeHtml(searchText(item))}">${escapeHtml(item)}</div>`).join('')}</div></div>`;
+  }
+
+  function nodeTable(rows, limit = 400) {
+    if (!rows.length) return `<div class="details-content"><div class="empty">${escapeHtml(t('empty'))}</div></div>`;
+    const visible = rows.slice(0, limit);
+    const items = visible.map(row => {
+      const text = `${row.id} ${row.title} ${row.type}`;
+      return `<div class="node-row searchable" data-search="${escapeHtml(searchText(text))}"><div class="node-id">#${escapeHtml(String(row.id))}</div><div><div class="node-title">${escapeHtml(row.title)}</div><div class="node-type">${escapeHtml(row.type)}</div></div></div>`;
+    }).join('');
+    const note = rows.length > limit ? `<div class="truncation-note">${escapeHtml(t('nodesTruncated', {limit, total: rows.length}))}</div>` : '';
+    return `<div class="details-content"><div class="node-list">${items}</div>${note}</div>`;
+  }
+
+  function makeDetails(title, count, html, open = false) {
+    const el = document.createElement('details');
+    el.open = open;
+    el.innerHTML = `<summary>${escapeHtml(title)} <span class="detail-count">${escapeHtml(String(count))}</span></summary>${html}`;
+    return el;
+  }
+
+  function activateRawTab(key) {
+    if (!currentRawData.has(key)) return;
+    currentRawKey = key;
+    for (const tab of tabs.querySelectorAll('.tab')) {
+      const active = tab.dataset.key === key;
+      tab.classList.toggle('active', active);
+      tab.setAttribute('aria-selected', String(active));
+    }
+    rawContent.textContent = pretty(currentRawData.get(key));
+  }
+
+  function renderRaw(raw) {
+    tabs.replaceChildren();
+    currentRawData = new Map(Object.entries(raw));
+    const fragment = document.createDocumentFragment();
+    let index = 0;
+    for (const key of currentRawData.keys()) {
+      const button = document.createElement('button');
+      button.className = `tab ${index === 0 ? 'active' : ''}`;
+      button.type = 'button';
+      button.dataset.key = key;
+      button.textContent = key;
+      button.setAttribute('role', 'tab');
+      button.setAttribute('aria-selected', String(index === 0));
+      fragment.appendChild(button);
+      index++;
+    }
+    tabs.appendChild(fragment);
+    const first = currentRawData.keys().next().value || '';
+    if (first) activateRawTab(first);
+    else rawContent.textContent = t('noEmbeddedData');
+  }
+
+  function applySearch() {
+    const query = metadataSearch.value.trim().toLocaleLowerCase(localeTag());
+    let visible = 0;
+    let total = 0;
+    for (const el of document.querySelectorAll('.searchable')) {
+      total++;
+      const match = !query || (el.dataset.search || '').includes(query);
+      el.hidden = !match;
+      if (match) visible++;
+    }
+    for (const block of document.querySelectorAll('.searchable-block')) {
+      const text = searchText(block.textContent + ' ' + block.querySelector('textarea')?.value);
+      block.hidden = !!query && !text.includes(query);
+    }
+    filterCount.textContent = query ? t('filterCount', {visible, total}) : countPhrase(total, 'record');
+  }
+
+  function render(file, metadata, promptObj, workflowObj, extracted) {
+    currentFile = file;
+    currentMetadata = metadata;
+    currentPromptObj = promptObj && typeof promptObj === 'object' ? promptObj : null;
+    currentWorkflow = workflowObj && typeof workflowObj === 'object' ? workflowObj : null;
+    currentResult = extracted;
+    downloadWorkflow.disabled = !currentWorkflow;
+    downloadMetadata.disabled = !metadata;
+
+    const detected = metadata._detected_format || file.type || 'Неизвестный формат';
+    const shownFormat = displayFormat(detected || t('unspecifiedType'));
+    const visibleKeys = Object.keys(metadata).filter(key => !key.startsWith('_'));
+    fileNameEl.textContent = file.name;
+    fileInfo.textContent = `${formatBytes(file.size)} · ${shownFormat}${metadata._partial_scan ? ` · ${t('partialScan')}` : ''}`;
+    resultTitle.textContent = file.name;
+    resultSubtitle.textContent = t('resultSubtitle', {
+      format: shownFormat,
+      metadata: countPhrase(visibleKeys.length, 'metadataField'),
+      nodes: countPhrase(extracted.nodeRows.length, 'workflowNode'),
+    });
+    clearResultButton.hidden = false;
+
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    for (const el of [previewImage, previewVideo, previewAudio, previewFallback]) el.classList.remove('show');
+    for (const el of [previewImage, previewVideo, previewAudio]) {
+      el.removeAttribute('src');
+      try { el.load?.(); } catch (_) {}
+    }
+    previewUrl = URL.createObjectURL(file);
+    const name = file.name.toLowerCase();
+    if (file.type.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp|avif|heic|heif|svg)$/i.test(name)) {
+      previewImage.src = previewUrl;
+      previewImage.classList.add('show');
+    } else if (file.type.startsWith('video/') || /\.(mp4|m4v|mov|webm|mkv|avi|3gp|ogv)$/i.test(name)) {
+      previewVideo.src = previewUrl;
+      previewVideo.classList.add('show');
+    } else if (file.type.startsWith('audio/') || /\.(mp3|wav|flac|ogg|opus|m4a|aac)$/i.test(name)) {
+      previewAudio.src = previewUrl;
+      previewAudio.classList.add('show');
+    } else previewFallback.classList.add('show');
+
+    positivePrompt.value = extracted.positive.join('\n\n');
+    negativePrompt.value = extracted.negative.join('\n\n');
+    positiveCount.textContent = positivePrompt.value ? countPhrase(positivePrompt.value.length, 'char') : t('notFound');
+    negativeCount.textContent = negativePrompt.value ? countPhrase(negativePrompt.value.length, 'char') : t('notFound');
+
+    const samplerPrimary = extracted.samplers.find(item =>
+      item && (
+        item.steps !== undefined ||
+        item.sampler_name !== undefined ||
+        item.scheduler !== undefined ||
+        item.seed !== undefined ||
+        item.noise_seed !== undefined
+      )
+    ) || {};
+
+    const numericSetting = (name, fallback = undefined) => {
+      const direct = extracted.settings[name];
+      if (typeof direct === 'number') return direct;
+      for (const [key, value] of Object.entries(extracted.settings)) {
+        if (key.startsWith(`${name} (`) && typeof value === 'number') return value;
+      }
+      return direct ?? fallback;
+    };
+
+    const summary = [
+      ['Seed', samplerPrimary.seed ?? samplerPrimary.noise_seed ?? extracted.settings.seed ?? extracted.settings.noise_seed ?? '—'],
+      ['Steps', samplerPrimary.steps ?? extracted.settings.steps ?? '—'],
+      ['CFG / Guidance', samplerPrimary.cfg ?? samplerPrimary.cfg_scale ?? samplerPrimary.guidance ?? extracted.settings.cfg ?? extracted.settings.cfg_scale ?? extracted.settings.guidance ?? extracted.settings.flux_guidance ?? '—'],
+      ['Sampler', samplerPrimary.sampler_name ?? samplerPrimary.sampler ?? extracted.settings.sampler_name ?? extracted.settings.sampler ?? '—'],
+      ['Scheduler', samplerPrimary.scheduler ?? extracted.settings.scheduler ?? '—'],
+      ['Denoise', typeof samplerPrimary.denoise === 'number' ? samplerPrimary.denoise : (numericSetting('denoise', samplerPrimary.denoise) ?? '—')],
+      [t('size'), extracted.dimensions[0] ?? ((extracted.settings.width && extracted.settings.height) ? `${extracted.settings.width} × ${extracted.settings.height}` : '—')],
+      [t('model'), extracted.models[0]?.replace(/^[^:]+:\s*/, '') ?? '—'],
+      ['LoRA', extracted.loras.length || '—'],
+      ['FPS', extracted.settings.fps ?? '—'],
+      [t('frames'), extracted.settings.num_frames ?? extracted.settings.length ?? '—'],
+      ['Metadata', visibleKeys.length]
+    ];
+    summaryGrid.replaceChildren(...summary.map(([label, value]) => makeSummaryItem(label, value)));
+    parameterNote.textContent = countPhrase(Object.keys(extracted.settings).length, 'setting');
+
+    details.replaceChildren();
+    details.appendChild(makeDetails(t('settings'), Object.keys(extracted.settings).length, objectTable(extracted.settings), true));
+    details.appendChild(makeDetails(t('models'), extracted.models.length, resourceList(extracted.models)));
+    details.appendChild(makeDetails('LoRA', extracted.loras.length, resourceList(extracted.loras)));
+    details.appendChild(makeDetails(t('samplerNodes'), extracted.samplers.length, extracted.samplers.length ? `<div class="details-content"><pre class="raw wrap">${escapeHtml(valueText(extracted.samplers, 120000))}</pre></div>` : `<div class="details-content"><div class="empty">${escapeHtml(t('empty'))}</div></div>`));
+    details.appendChild(makeDetails(t('workflowNodes'), extracted.nodeRows.length, nodeTable(extracted.nodeRows)));
+
+    const raw = {};
+    if (promptObj) raw['API prompt'] = promptObj;
+    if (workflowObj) raw['Workflow'] = workflowObj;
+    for (const [key, value] of Object.entries(metadata)) {
+      if (!['prompt','workflow','_detected_format','_partial_scan'].includes(key)) raw[key] = value;
+    }
+    if (!Object.keys(raw).length) raw[t('metadata')] = metadata;
+    renderRaw(raw);
+
+    metadataSearch.value = '';
+    applySearch();
+    document.body.classList.add('has-results');
+    resultsEl.classList.add('show');
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  }
+
+  async function handleFile(file) {
+    if (!file) return;
+    const generation = ++parseGeneration;
+    currentFile = file;
+    setStatusKey('reading', {name: file.name}, 'working');
+    resultsEl.classList.remove('show');
+    document.body.classList.remove('has-results');
+    clearResultButton.hidden = true;
+
+    try {
+      await yieldToBrowser();
+      const segments = await readMetadataBuffers(file);
+      if (generation !== parseGeneration) return;
+
+      const detected = detectFormat(segments[0].buffer, file);
+      setStatusKey('parsing', {format: displayFormat(detected)}, 'working');
+      await yieldToBrowser();
+
+      let metadata = {};
+      let jsonDirect = null;
+      for (let index = 0; index < segments.length; index++) {
+        const segment = segments[index];
+        const fragmentMode = /ISO-BMFF/.test(detected) && segment.offset > 0;
+        mergeMeta(metadata, parseByDetectedFormat(segment.buffer, detected, file, {fragmentMode}));
+        if (index + 1 < segments.length) await yieldToBrowser();
+        if (generation !== parseGeneration) return;
+      }
+
+      const name = file.name.toLowerCase();
+      if (detected === 'JSON/текст' || file.type === 'application/json' || name.endsWith('.json')) {
+        const rawText = textDecoder.decode(new Uint8Array(segments[0].buffer));
+        try {
+          jsonDirect = JSON.parse(rawText);
+          if (jsonDirect?.nodes) addMeta(metadata, 'workflow', jsonDirect);
+          else addMeta(metadata, 'prompt', jsonDirect);
+        } catch (_) {}
+      }
+
+      setStatusKey('collecting', {}, 'working');
+      await yieldToBrowser();
+      if (generation !== parseGeneration) return;
+
+      metadata._detected_format = detected;
+      metadata._partial_scan = segments.length > 1;
+      const normalized = normalizeMetadata(metadata);
+      let promptObj = normalized.prompt && typeof normalized.prompt === 'object' ? normalized.prompt : null;
+      let workflowObj = normalized.workflow && typeof normalized.workflow === 'object' ? normalized.workflow : null;
+
+      if (!promptObj && typeof normalized.prompt === 'string') {
+        const parsed = safeJsonParse(normalized.prompt);
+        if (parsed && typeof parsed === 'object') promptObj = parsed;
+      }
+      if (!workflowObj && typeof normalized.workflow === 'string') {
+        const parsed = safeJsonParse(normalized.workflow);
+        if (parsed && typeof parsed === 'object') workflowObj = parsed;
+      }
+      if (!promptObj && jsonDirect && !jsonDirect.nodes) promptObj = jsonDirect;
+      if (!workflowObj && jsonDirect?.nodes) workflowObj = jsonDirect;
+
+      let extracted = mergeExtract(extractFromPrompt(promptObj), extractFromWorkflow(workflowObj));
+      extracted = mergeExtract(extracted, extractFromFlatMetadata(normalized));
+      for (const candidate of [normalized.parameters, normalized.generation_data, normalized.comment, normalized.ICMT, normalized.description]) {
+        const a1111 = parseA1111(typeof candidate === 'string' ? candidate : '');
+        if (a1111) extracted = mergeExtract(extracted, a1111);
+      }
+
+      const visibleKeys = Object.keys(normalized).filter(key => !key.startsWith('_'));
+      const meaningful = promptObj || workflowObj || extracted.positive.length || extracted.negative.length || Object.keys(extracted.settings).length || visibleKeys.length;
+      render(file, normalized, promptObj, workflowObj, extracted);
+      if (!meaningful) {
+        setStatusKey('noMetadata', {format: displayFormat(detected)}, 'error');
+      } else {
+        const coreTags = ['prompt','workflow','parameters'].filter(key => normalized[key] !== undefined);
+        setStatusKey('done', {
+          format: displayFormat(detected),
+          count: countPhrase(visibleKeys.length, 'metadataField'),
+          tags: coreTags.length ? t('coreTags', {tags: coreTags.join(' + ')}) : '',
+          scan: segments.length > 1 ? t('scannedEnds') : '',
+        }, 'ok');
+      }
+    } catch (error) {
+      if (generation !== parseGeneration) return;
+      console.error(error);
+      if (error?.message) {
+        lastStatus = {key: 'readError', params: {}, type: 'error'};
+        setStatus(error.message, 'error');
+      } else setStatusKey('readError', {}, 'error');
+    }
+  }
+
+  async function copyText(text, button) {
+    const value = text || '';
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch (_) {
+      const area = document.createElement('textarea');
+      area.value = value;
+      area.style.position = 'fixed';
+      area.style.opacity = '0';
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand('copy');
+      area.remove();
+    }
+    showToast(value ? t('copied') : t('emptyField'));
+    if (button) {
+      const original = button.textContent;
+      button.textContent = t('doneButton');
+      setTimeout(() => button.textContent = original, 900);
+    }
+  }
+
+  function copySummary(button) {
+    if (!currentResult) return;
+    const settings = currentResult.settings;
+    const lines = [
+      currentResult.positive.length ? `Positive prompt:\n${currentResult.positive.join('\n\n')}` : '',
+      currentResult.negative.length ? `Negative prompt:\n${currentResult.negative.join('\n\n')}` : '',
+      `Seed: ${settings.seed ?? settings.noise_seed ?? '—'}`,
+      `Steps: ${settings.steps ?? '—'}`,
+      `CFG / Guidance: ${settings.cfg ?? settings.cfg_scale ?? settings.guidance ?? settings.flux_guidance ?? '—'}`,
+      `Sampler: ${settings.sampler_name ?? settings.sampler ?? '—'}`,
+      `Scheduler: ${settings.scheduler ?? '—'}`,
+      `Denoise: ${settings.denoise ?? '—'}`,
+      currentResult.dimensions.length ? `${t('summarySize')}: ${currentResult.dimensions.join('; ')}` : '',
+      currentResult.models.length ? `${t('summaryModels')}: ${currentResult.models.join('; ')}` : '',
+      currentResult.loras.length ? `LoRA: ${currentResult.loras.join('; ')}` : ''
+    ].filter(Boolean);
+    copyText(lines.join('\n\n'), button);
+  }
+
+  function clearResult() {
+    ++parseGeneration;
+    currentFile = null;
+    currentMetadata = null;
+    currentPromptObj = null;
+    currentWorkflow = null;
+    currentResult = null;
+    currentRawData.clear();
+    resultsEl.classList.remove('show');
+    document.body.classList.remove('has-results');
+    clearResultButton.hidden = true;
+    metadataSearch.value = '';
+    fileInput.value = '';
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    previewUrl = null;
+    setStatusKey('ready');
+  }
+
+  function chooseFile() {
+    fileInput.value = '';
+    fileInput.click();
+  }
+
+  fileInput.addEventListener('change', () => handleFile(fileInput.files[0]));
+  openFileButton.addEventListener('click', chooseFile);
+  newFileButton.addEventListener('click', chooseFile);
+  clearResultButton.addEventListener('click', clearResult);
+
+  ['dragenter', 'dragover'].forEach(type => dropzone.addEventListener(type, event => {
+    event.preventDefault();
+    dropzone.classList.add('drag');
+  }));
+  ['dragleave', 'drop'].forEach(type => dropzone.addEventListener(type, event => {
+    event.preventDefault();
+    dropzone.classList.remove('drag');
+  }));
+  dropzone.addEventListener('drop', event => handleFile(event.dataTransfer?.files?.[0]));
+
+  document.addEventListener('dragover', event => {
+    if (event.dataTransfer?.types?.includes('Files')) event.preventDefault();
+  });
+  document.addEventListener('drop', event => {
+    if (dropzone.contains(event.target)) return;
+    const file = event.dataTransfer?.files?.[0];
+    if (!file) return;
+    event.preventDefault();
+    handleFile(file);
+  });
+  document.addEventListener('paste', event => {
+    const file = event.clipboardData?.files?.[0];
+    if (file) handleFile(file);
+  });
+  document.addEventListener('keydown', event => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'o') {
+      event.preventDefault();
+      chooseFile();
+    }
+    if (event.key === 'Escape' && metadataSearch.value) {
+      metadataSearch.value = '';
+      applySearch();
+    }
+  });
+
+  document.addEventListener('click', event => {
+    const copy = event.target.closest('.copy-field');
+    if (copy) copyText(document.getElementById(copy.dataset.target)?.value || '', copy);
+    const tab = event.target.closest('.tab');
+    if (tab) activateRawTab(tab.dataset.key);
+  });
+
+  metadataSearch.addEventListener('input', applySearch);
+  $('#copySummary').addEventListener('click', event => copySummary(event.currentTarget));
+  $('#copyRaw').addEventListener('click', event => copyText(rawContent.textContent, event.currentTarget));
+  toggleWrap.addEventListener('click', () => {
+    rawContent.classList.toggle('wrap');
+    toggleWrap.textContent = rawContent.classList.contains('wrap') ? t('noWrap') : t('wrapLines');
+  });
+
+  downloadWorkflow.addEventListener('click', () => {
+    if (!currentWorkflow) return;
+    downloadTextFile('workflow.json', safeJsonStringify(currentWorkflow, 2));
+    showToast(t('workflowSaved'));
+  });
+
+  downloadMetadata.addEventListener('click', () => {
+    if (!currentMetadata) return;
+    const base = (currentFile?.name || 'metadata').replace(/\.[^.]+$/, '');
+    downloadTextFile(`${base}.metadata.json`, safeJsonStringify(currentMetadata, 2));
+    showToast(t('metadataSaved'));
+  });
+
+  for (const button of languageButtons) {
+    button.addEventListener('click', () => {
+      const nextLocale = button.dataset.lang;
+      if (!TRANSLATIONS[nextLocale] || nextLocale === locale) return;
+      locale = nextLocale;
+      applyLocale();
+    });
+  }
+
+  applyLocale({rerender: false});
+
+})();
+
+  </script>
+</body>
+</html>
