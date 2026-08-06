@@ -1,0 +1,57 @@
+name: Publish v4.4 release
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/release-v4.4.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-v4.4
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build standalone HTML
+        run: node scripts/build-standalone.mjs
+
+      - name: Validate release file
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const file = 'dist/ComfyUI-Metadata-Reader-v4.4.html';
+          const html = fs.readFileSync(file, 'utf8');
+          if (html.includes('app-payload-') || html.includes('payload-css.js')) {
+            throw new Error('The release file still references repository payload files.');
+          }
+          if (!html.includes('const TRANSLATIONS') || !html.includes('data-lang="ru"') || !html.includes('data-lang="en"')) {
+            throw new Error('The bilingual interface is missing from the release file.');
+          }
+          console.log(`${file}: ${fs.statSync(file).size} bytes`);
+          NODE
+
+      - name: Replace v4.4 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete v4.4 --cleanup-tag --yes || true
+          gh release create v4.4 \
+            dist/ComfyUI-Metadata-Reader-v4.4.html \
+            --target "$GITHUB_SHA" \
+            --title "ComfyUI Metadata Reader v4.4" \
+            --notes-file RELEASE_NOTES.md
